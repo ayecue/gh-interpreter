@@ -1,0 +1,2456 @@
+interpreterModule = function(deps)
+	dynResolve = deps[0]
+	CodeParser = deps[1]
+	EventEmitter = deps[2]
+	dynApply = deps[3]
+
+	ExpressionManager = {"members":{}}
+
+	ExpressionManager.add = function(key, expression)
+		me = self
+		me.members[key] = expression
+		return me
+	end function
+
+	ExpressionManager.isInstanceOf = function(obj)
+		me = self
+		return me.members.hasIndex(typeof(@obj))
+	end function
+
+	ExpressionManager.get = function(key)
+		me = self
+		if (me.members.hasIndex(key)) then
+			return me.members[key]
+		end if
+		return null
+	end function
+
+	OperationManager = {"members":{}}
+
+	OperationManager.add = function(key, expression)
+		me = self
+		me.members[key] = expression
+		return me
+	end function
+
+	OperationManager.isInstanceOf = function(obj)
+		me = self
+		return me.members.hasIndex(typeof(@obj))
+	end function
+
+	OperationManager.get = function(key)
+		me = self
+		if (me.members.hasIndex(key)) then
+			return me.members[key]
+		end if
+		return null
+	end function
+
+	OperationManager.ExpressionManager = ExpressionManager
+	ExpressionManager.OperationManager = OperationManager
+
+	FunctionRegistry = {"members":{}}
+
+	FunctionRegistry.add = function(op)
+		me = self
+		me.members[op.id] = op
+		return me
+	end function
+
+	FunctionRegistry.get = function(key)
+		me = self
+		if (me.members.hasIndex(key)) then
+			return me.members[key]
+		end if
+		return null
+	end function
+
+	ScopeRegistry = {"members":{}}
+
+	ScopeRegistry.add = function(op)
+		me = self
+		me.members[op.id] = op
+		return me
+	end function
+
+	ScopeRegistry.get = function(key)
+		me = self
+		if (me.members.hasIndex(key)) then
+			return me.members[key]
+		end if
+		return null
+	end function
+
+	AssignExpression = {}
+
+	ExpressionManager.add("AssignExpression", AssignExpression)
+	AssignExpression.dynResolve = dynResolve
+	AssignExpression.ExpressionManager = ExpressionManager
+	AssignExpression.OperationManager = OperationManager
+	AssignExpression.FunctionRegistry = FunctionRegistry
+	AssignExpression.ScopeRegistry = ScopeRegistry
+	AssignExpression.constructor = function(ast, cpsWalker)
+		me = self
+
+		build = function(node)
+			me = self
+			expression = null
+			base = null
+
+			if (node.type == "AssignmentStatement") then
+				expression = {
+					"left": me.build(node.variable),
+					"right": me.build(node.init)
+				}
+			else
+				expression = me.cpsWalker.visit(node)
+			end if
+
+			return expression
+		end function
+
+		buildIterator = {
+			"cpsWalker": cpsWalker,
+			"build": @build
+		}
+
+		me.classID = "AssignExpression"
+		me.ast = ast
+		me.expr = buildIterator.build(ast)
+		me.isExpression = true
+		me.cpsWalker = cpsWalker
+
+		return me
+	end function
+
+	AssignExpression.get = function(operationContext, parentExpr)
+		me = self
+
+		evaluate = function(node)
+			me = self.instance
+			opc = self.opc
+
+			if (not me.ExpressionManager.isInstanceOf(node.left)) then
+				me.cpsWalker.raise(["Unexpected left assignment", me, left].join(" "))
+			end if
+
+			left = node.left.get(opc, me.expr)
+			right = @node.right
+
+			if (me.ExpressionManager.isInstanceOf(@right)) then
+				right = right.get(opc)
+			else if (me.OperationManager.isInstanceOf(@right)) then
+				right = right.get(opc)
+
+				if (typeof(@right) == "proxyFunction") then
+					right = me.FunctionRegistry.get(right.id)
+				end if
+
+				pathLength = left.path.len
+
+				if (typeof(@right) == "FunctionOperation" and typeof(left.handle) != "null") then
+					handleType = typeof(left.handle)
+
+					if (handleType != "string" and handleType != "number" and handleType != "boolean") then
+						right = right.fork(left.handle)
+					end if
+				end if
+			else if (@right == null) then
+				me.cpsWalker.raise(["Unexpected right assignment", me, @right].join(" "))
+			end if
+
+			if (typeof(left.handle) != "null") then
+				leftType = typeof(left.handle)
+
+				if (leftType == "proxyScope") then
+					me.cpsWalker.debug({
+						"type": "AssignExpression", 
+						"description": "assign with operationContext",
+						"leftType": leftType,
+						"right": @right
+					})
+
+					handleOpc = me.ScopeRegistry.get(left.handle.id)
+					handleOpc.set(left.path, @right)
+
+					return true
+				end if
+
+				me.cpsWalker.debug({
+					"type": "AssignExpression", 
+					"description": "assign with handle",
+					"leftType": leftType,
+					"right": @right
+				})
+
+				if (leftType != "string" and leftType != "boolean" and leftType != "number") then
+					handlePath = left.path
+					context = left.handle
+
+					me.dynResolve.set(context, handlePath, @right)
+
+					return true
+				else
+					me.cpsWalker.raise(["Unexpected left assignment", me, left].join(" "))
+				end if
+			end if
+
+			me.cpsWalker.debug({
+				"type": "AssignExpression", 
+				"description": "assign with scope",
+				"path": left.path
+				"right": @right
+			})
+
+			opc.set(left.path, @right)
+
+			return true
+		end function
+
+		evaluateIterator = {
+			"instance": me,
+			"eval": @evaluate,
+			"opc": operationContext
+		}
+
+		me.cpsWalker.debug({
+			"type": "AssignExpression", 
+			"description": "get expr",
+			"line": me.ast.line,
+			"expr": me.expr
+		})
+
+		return evaluateIterator.eval(me.expr)
+	end function
+
+	BinaryNegatedExpression = {}
+	ExpressionManager.add("BinaryNegatedExpression", BinaryNegatedExpression)
+
+	BinaryNegatedExpression.dynResolve = dynResolve
+	BinaryNegatedExpression.ExpressionManager = ExpressionManager
+	BinaryNegatedExpression.OperationManager = OperationManager
+
+	binaryNegatedOpsPositive = function(v)
+		return v
+	end function
+
+	binaryNegatedOpsNegative = function(v)
+		return v * -1
+	end function
+
+	BinaryNegatedExpression.OPERATIONS = {
+		"+": @binaryNegatedOpsPositive,
+		"-": @binaryNegatedOpsNegative
+	}
+
+	BinaryNegatedExpression.constructor = function(ast, cpsWalker)
+		me = self
+
+		build = function(node)
+			me = self
+			expression = null
+
+			if (node.type == "BinaryNegatedExpression") then
+				expression = {
+					"classID": node.type,
+					"operator": node.operator,
+					"arg": me.build(node.arg)
+				}
+			else
+				expression = me.cpsWalker.visit(node)
+			end if
+
+			return expression
+		end function
+
+		buildIterator = {
+			"cpsWalker": cpsWalker,
+			"build": @build
+		}
+
+		me.classID = "BinaryNegatedExpression"
+		me.ast = ast
+		me.expr = buildIterator.build(ast)
+		me.isExpression = true
+		me.cpsWalker = cpsWalker
+
+		return me
+	end function
+
+	BinaryNegatedExpression.get = function(operationContext, parentExpr)
+		me = self
+
+		evaluate = function(node)
+			me = self.instance
+			operationContext = self.opc
+
+			if (typeof(node) == "BinaryNegatedExpression") then
+				arg = self.eval(node.arg)
+				op = @me.OPERATIONS[node.operator]
+
+				return op(arg)
+			end if
+
+			if (me.ExpressionManager.isInstanceOf(node) or me.OperationManager.isInstanceOf(node)) then
+				return node.get(operationContext)
+			end if
+
+			return node
+		end function
+
+		evaluateIterator = {
+			"instance": me,
+			"eval": @evaluate,
+			"opc": operationContext
+		}
+
+		me.cpsWalker.debug({
+			"type": "BinaryNegatedExpression", 
+			"description": "get expr",
+			"line": me.ast.line,
+			"expr": me.expr
+		})
+
+		return evaluateIterator.eval(me.expr)
+	end function
+
+	CallExpression = {}
+	ExpressionManager.add("CallExpression", CallExpression)
+
+	CallExpression.dynResolve = dynResolve
+	CallExpression.dynApply = dynApply
+	CallExpression.ExpressionManager = ExpressionManager
+	CallExpression.OperationManager = OperationManager
+
+	CallExpression.constructor = function(ast, cpsWalker)
+		me = self
+
+		build = function(node)
+			me = self
+			expression = null
+			base = null
+
+			if (node.type == "CallStatement") then
+				expression = me.build(node.expression)
+			else if (node.type == "CallExpression") then
+				args = []
+
+				for item in node.arguments
+					args.push(me.cpsWalker.visit(item))
+				end for
+
+				expression = {
+					"classID": "call",
+					"path": me.build(node.base),
+					"args": args
+				}
+			else
+				expression = me.cpsWalker.visit(node)
+			end if
+
+			return expression
+		end function
+
+		buildIterator = {
+			"cpsWalker": cpsWalker,
+			"build": @build
+		}
+
+		me.classID = "CallExpression"
+		me.ast = ast
+		me.expr = buildIterator.build(ast)
+		me.isExpression = true
+		me.cpsWalker = cpsWalker
+
+		return me
+	end function
+
+	CallExpression.get = function(operationContext, parentExpr)
+		me = self
+
+		resolveArgs = function(args)
+			me = self.instance
+			opc = self.opc
+			result = []
+
+			for item in args
+				me.cpsWalker.debug({
+					"type": "CallExpression", 
+					"description": "resolve arg",
+					"item": @item
+				})
+
+				if (me.ExpressionManager.isInstanceOf(@item) or me.OperationManager.isInstanceOf(@item)) then
+					result.push(item.get(opc))
+				else
+					result.push(@item)
+				end if
+			end for
+
+			return result
+		end function
+
+		evaluate = function(node)
+			me = self.instance
+			opc = self.forkedOpc
+
+			if (me.ExpressionManager.isInstanceOf(node)) then
+				return node.get(opc)
+			end if
+
+			args = self.resolveArgs(node.args)
+			me.cpsWalker.debug({
+				"type": "CallExpression", 
+				"description": "resolved args",
+				"args": args
+			})
+
+			if (typeof(node.path) == "call") then
+				callResult = self.eval(node.path)
+				if (me.OperationManager.isInstanceOf(callResult)) then
+					opc.setMemory("args", args)
+					return callResult.run(opc)
+				else
+					me.cpsWalker.raise(["CallExpression", "Unexpected handle result", me, callResult].join(" "))
+				end if
+			end if
+
+			pathExpr = node.path.get(opc, me.expr)
+
+			me.cpsWalker.debug({
+				"type": "CallExpression", 
+				"description": "get path expr result",
+				"pathExpr": pathExpr
+			})
+
+
+			handleType = typeof(@pathExpr.handle)
+
+			if (handleType != "null") then
+				callable = me.dynResolve.getCallable(@pathExpr.handle, pathExpr.path)
+
+				me.cpsWalker.debug({
+					"type": "CallExpression", 
+					"description": "handle callable",
+					"callable": callable
+				})
+
+				if (me.OperationManager.isInstanceOf(@callable.origin)) then
+					opc.setMemory("args", args)
+					return callable.origin.run(opc)
+				else if (typeof(@callable.origin) == "function") then
+					return me.dynApply.apply(@callable.origin, args, callable.context)
+				end if
+
+				me.cpsWalker.raise({
+					"type": "CallExpression", 
+					"description": "Unexpected handle call",
+					"callable": callable
+				})
+			end if
+
+			callable = opc.getCallable(pathExpr.path)
+
+			me.cpsWalker.debug({
+				"type": "CallExpression", 
+				"description": "operationContext",
+				"callable": callable
+			})
+
+			opc.setMemory("args", args)
+
+			if (me.OperationManager.isInstanceOf(@callable.origin)) then
+				result = callable.origin.run(opc)
+				return result
+			else if (typeof(@callable.origin) == "function") then
+				return me.dynApply.apply(@callable.origin, args, callable.context)
+			end if
+
+			return @callable.origin
+		end function
+
+		evaluateIterator = {
+			"instance": me,
+			"eval": @evaluate,
+			"resolveArgs": @resolveArgs,
+			"opc": operationContext,
+			"forkedOpc": operationContext.fork("CALL", "TEMPORARY")
+		}
+
+		me.cpsWalker.debug({
+			"type": "CallExpression", 
+			"description": "get expr",
+			"line": me.ast.line,
+			"expr": me.expr
+		})
+
+		return evaluateIterator.eval(me.expr)
+	end function
+
+	ListExpression = {}
+	ExpressionManager.add("ListExpression", ListExpression)
+
+	ListExpression.dynResolve = dynResolve
+	ListExpression.ExpressionManager = ExpressionManager
+	ListExpression.OperationManager = OperationManager
+
+	ListExpression.constructor = function(ast, cpsWalker)
+		me = self
+
+		build = function(node)
+			me = self
+			expression = null
+
+			if (node.type == "ListConstructorExpression") then
+				fields = []
+
+				for item in node.fields
+					fields.push(me.cpsWalker.visit(item.value))
+				end for
+
+				expression = {
+					"classID": "listexpr",
+					"values": fields
+				}
+			else
+				expression = me.cpsWalker.visit(node)
+			end if
+
+			return expression
+		end function
+
+		buildIterator = {
+			"cpsWalker": cpsWalker,
+			"build": @build
+		}
+
+		me.classID = "ListExpression"
+		me.ast = ast
+		me.expr = buildIterator.build(ast)
+		me.isExpression = true
+		me.cpsWalker = cpsWalker
+
+		return me
+	end function
+
+	ListExpression.get = function(operationContext, parentExpr)
+		me = self
+
+		evaluate = function(node)
+			me = self.instance
+			operationContext = self.opc
+			traverselPath = [] + node
+			list = []
+			current = traverselPath.pull()
+
+			while (typeof(current) != "null")
+				if (typeof(current) == "listexpr") then
+					list.push(me.eval(current.values))
+				else if (me.ExpressionManager.isInstanceOf(current)) then
+					list.push(current.get(operationContext))
+				else
+					list.push(current)
+				end if
+
+				current = traverselPath.pull()
+			end while
+
+			return list
+		end function
+
+		evaluateIterator = {
+			"instance": me,
+			"eval": @evaluate,
+			"opc": operationContext
+		}
+
+		me.cpsWalker.debug({
+			"type": "ListExpression", 
+			"description": "get expr",
+			"line": me.ast.line,
+			"expr": me.expr
+		})
+
+		return evaluateIterator.eval(me.expr.values)
+	end function
+
+	LogicalAndBinaryExpression = {}
+	ExpressionManager.add("LogicalAndBinaryExpression", LogicalAndBinaryExpression)
+
+	LogicalAndBinaryExpression["+"] = function(a, b)
+		return a + b
+	end function
+	LogicalAndBinaryExpression["-"] = function(a, b)
+		return a - b
+	end function
+	LogicalAndBinaryExpression["/"] = function(a, b)
+		return a / b
+	end function
+	LogicalAndBinaryExpression["*"] = function(a, b)
+		return a * b
+	end function
+	LogicalAndBinaryExpression["<"] = function(a, b)
+		return a < b
+	end function
+	LogicalAndBinaryExpression[">"] = function(a, b)
+		return a > b
+	end function
+	LogicalAndBinaryExpression["%"] = function(a, b)
+		return a % b
+	end function
+	LogicalAndBinaryExpression[">="] = function(a, b)
+		return a >= b
+	end function
+	LogicalAndBinaryExpression["=="] = function(a, b)
+		return a == b
+	end function
+	LogicalAndBinaryExpression["<="] = function(a, b)
+		return a <= b
+	end function
+	LogicalAndBinaryExpression["=="] = function(a, b)
+		return a == b
+	end function
+	LogicalAndBinaryExpression["<="] = function(a, b)
+		return a <= b
+	end function
+	LogicalAndBinaryExpression["!="] = function(a, b)
+		return a != b
+	end function
+	LogicalAndBinaryExpression["and"] = function(a, b)
+		return a and b
+	end function
+	LogicalAndBinaryExpression["or"] = function(a, b)
+		return a or b
+	end function
+	LogicalAndBinaryExpression["^"] = function(a, b)
+		return bitwise("^", a, b)
+	end function
+	LogicalAndBinaryExpression["|"] = function(a, b)
+		return bitwise("|", a, b)
+	end function
+	LogicalAndBinaryExpression["<<"] = function(a, b)
+		return bitwise("<<", a, b)
+	end function
+	LogicalAndBinaryExpression[">>"] = function(a, b)
+		return bitwise(">>", a, b)
+	end function
+	LogicalAndBinaryExpression[">>>"] = function(a, b)
+		return bitwise(">>>", a, b)
+	end function
+	LogicalAndBinaryExpression["&"] = function(a, b)
+		return bitwise("&", a, b)
+	end function
+
+	LogicalAndBinaryExpression.OPERATIONS = LogicalAndBinaryExpression
+	LogicalAndBinaryExpression.dynApply = dynApply
+	LogicalAndBinaryExpression.dynResolve = dynResolve
+	LogicalAndBinaryExpression.ExpressionManager = ExpressionManager
+	LogicalAndBinaryExpression.OperationManager = OperationManager
+
+	LogicalAndBinaryExpression.constructor = function(ast, cpsWalker)
+		me = self
+
+		build = function(node)
+			me = self
+			expression = null
+
+			if (node.type == "LogicalExpression" or node.type == "BinaryExpression") then
+				expression = {
+					"classID": node.type,
+					"operator": node.operator,
+					"left": me.build(node.left),
+					"right": me.build(node.right)
+				}
+			else
+				expression = me.cpsWalker.visit(node)
+			end if
+
+			return expression
+		end function
+
+		buildIterator = {
+			"cpsWalker": cpsWalker,
+			"build": @build
+		}
+
+		me.classID = "LogicalAndBinaryExpression"
+		me.ast = ast
+		me.expr = buildIterator.build(ast)
+		me.isExpression = true
+		me.cpsWalker = cpsWalker
+
+		return me
+	end function
+
+	LogicalAndBinaryExpression.get = function(operationContext, parentExpr)
+		me = self
+
+		evaluate = function(node)
+			me = self.instance
+			operationContext = self.opc
+			left = null
+			right = null
+			type = typeof(node)
+
+			me.cpsWalker.debug({
+				"type": "LogicalAndBinaryExpression", 
+				"description": "type",
+				"val": type
+			})
+
+			if (type == "BinaryExpression") then
+				left = self.eval(node.left)
+				right = self.eval(node.right)
+
+				return me.dynApply.apply(me.OPERATIONS[node.operator], [left, right])
+			else if (type == "LogicalExpression") then
+				left = self.eval(node.left)
+
+				if (typeof(left) == "list" and not left) then
+					left = false
+				end if
+
+				if (node.operator == "and" and not left) then
+					return false
+				else if (node.operator == "or" and left) then
+					return true
+				end if
+
+				right = self.eval(node.right)
+
+				return me.dynApply.apply(me.OPERATIONS[node.operator], [left, right])
+			end if
+
+			if (me.ExpressionManager.isInstanceOf(node) or me.OperationManager.isInstanceOf(node)) then
+				return node.get(operationContext)
+			end if
+
+			return node
+		end function
+
+		evaluateIterator = {
+			"instance": me,
+			"eval": @evaluate,
+			"opc": operationContext
+		}
+
+		me.cpsWalker.debug({
+			"type": "LogicalAndBinaryExpression", 
+			"description": "get expr",
+			"line": me.ast.line,
+			"expr": me.expr
+		})
+
+		return evaluateIterator.eval(me.expr)
+	end function
+
+
+	MapExpression = {}
+	ExpressionManager.add("MapExpression", MapExpression)
+
+	MapExpression.dynResolve = dynResolve
+	MapExpression.ExpressionManager = ExpressionManager
+	MapExpression.OperationManager = OperationManager
+
+	MapExpression.constructor = function(ast, cpsWalker)
+		me = self
+
+		build = function(node)
+			me = self
+			expression = null
+
+			if (node.type == "MapConstructorExpression") then
+				fields = []
+
+				for item in node.fields
+					fields.push({
+						"key": me.cpsWalker.visit(item.key),
+						"value": me.build(item.value)
+					})
+				end for
+
+				expression = {
+					"classID": "mapexpr",
+					"values": fields
+				}
+			else
+				expression = me.cpsWalker.visit(node)
+			end if
+
+			return expression
+		end function
+
+		buildIterator = {
+			"cpsWalker": cpsWalker,
+			"build": @build
+		}
+
+		me.classID = "MapExpression"
+		me.ast = ast
+		me.expr = buildIterator.build(ast)
+		me.isExpression = true
+		me.cpsWalker = cpsWalker
+
+		return me
+	end function
+
+	MapExpression.get = function(operationContext, parentExpr)
+		me = self
+
+		evaluate = function(node)
+			me = self.instance
+			operationContext = self.opc
+			traverselPath = [] + node
+			map = {}
+			current = traverselPath.pull()
+
+			while (current)
+				key = null
+				value = null
+
+				if (typeof(current.key) == "string") then
+					key = current.key
+				else
+					me.cpsWalker.raise(["Unexpected key", me, current.key].join(" "))
+				end if
+
+				if (typeof(current.value) == "mapexpr") then
+					value = self.eval(current.value.values)
+				else if (me.ExpressionManager.isInstanceOf(current.value)) then
+					value = current.value.get(operationContext)
+				else
+					value = current.value
+				end if
+
+				map[key] = value
+				current = traverselPath.pull()
+			end while
+
+			return map
+		end function
+
+		evaluateIterator = {
+			"instance": me,
+			"eval": @evaluate,
+			"opc": operationContext
+		}
+
+		me.cpsWalker.debug({
+			"type": "MapExpression", 
+			"description": "get expr",
+			"line": me.ast.line,
+			"expr": me.expr
+		})
+
+		return evaluateIterator.eval(me.expr.values)
+	end function
+
+	PathExpression = {}
+	ExpressionManager.add("PathExpression", PathExpression)
+
+	PathExpression.dynResolve = dynResolve
+	PathExpression.dynApply = dynApply
+	PathExpression.ExpressionManager = ExpressionManager
+	PathExpression.OperationManager = OperationManager
+	PathExpression.FunctionRegistry = FunctionRegistry
+	PathExpression.ScopeRegistry = ScopeRegistry
+
+	PathExpression.constructor = function(ast, cpsWalker)
+		me = self
+
+		append = function(expr, v)
+			if (typeof(v) == "list") then
+				return expr + v
+			end if
+			
+			return expr + [v]
+		end function
+
+		build = function(node)
+			me = self
+			expression = []
+
+			if (node.type == "MemberExpression") then
+				expression = me.append(expression, me.build(node.base))
+				expression = me.append(expression, me.build(node.identifier))
+			else if (node.type == "IndexExpression") then
+				expression = me.append(expression, me.build(node.base))
+				indexType = me.dynResolve.get(node.index, "type")
+
+				if (indexType == "SliceExpression") then
+					expression = me.append(expression, {
+						"classID": "slice",
+						"left": me.build(node.index.left),
+						"right": me.build(node.index.right)
+					})
+				else
+					expression = me.append(expression, {
+						"classID": "index",
+						"value": me.build(node.index)
+					})
+				end if
+			else if (node.type == "Identifier") then
+				expression = me.append(expression, {
+					"classID": "path",
+					"value": node.value
+				})
+			else
+				expression = me.append(expression, me.cpsWalker.visit(node))
+			end if
+
+			return expression
+		end function
+
+		buildIterator = {
+			"dynResolve": me.dynResolve,
+			"cpsWalker": cpsWalker,
+			"build": @build,
+			"append": @append
+		}
+
+		me.classID = "PathExpression"
+		me.ast = ast
+		me.expr = buildIterator.build(ast)
+		me.isExpression = true
+		me.cpsWalker = cpsWalker
+
+		return me
+	end function
+
+	PathExpression.getByIndex = function(index)
+		return self.expr[index]
+	end function
+
+	PathExpression.get = function(operationContext, parentExpr)
+		me = self
+		opc = operationContext
+
+		evaluate = function(node)
+			me = self.instance
+			opc = self.opc
+			traverselPath = [] + node
+			traversedPath = []
+			position = 0
+			handle = null
+			current = traverselPath.pull()
+
+			while (current)
+				currentType = typeof(current)
+				if (me.ExpressionManager.isInstanceOf(current)) then
+					handle = current.get(opc, me.expr)
+				else if (me.OperationManager.isInstanceOf(current)) then
+					handle = current.get(opc)
+				else if (currentType == "path") then
+					me.cpsWalker.debug({
+						"type": "PathExpression", 
+						"description": "current path",
+						"path": current.value
+					})
+
+					if (current.value == "self" and position == 0) then
+						functionContext = opc.getMemory("functionContext")
+						context = me.dynResolve.get(functionContext, "context")
+
+						if (typeof(context) != "null") then
+							handle = functionContext.context
+						else
+							me.cpsWalker.raise(["Unexpected self", me, current].join(" "))
+						end if
+					else
+						traversedPath.push(current.value)
+
+						if (traverselPath.len > 0) then
+							handleType = typeof(@handle)
+
+							if (handleType != "null") then
+								//needs to call functions as well
+								origin = handle
+							else
+								origin = @opc
+							end if
+
+							originType = typeof(@origin)
+
+							me.cpsWalker.debug({
+								"type": "PathExpression", 
+								"description": "traversed",
+								"origin": @origin,
+								"originType": originType
+							})
+
+							if (originType == "proxyScope") then
+								handleOpc = me.ScopeRegistry.get(origin.id)
+								handle = handleOpc.get(traversedPath)
+							else if (originType == "operationContext" or me.ExpressionManager.isInstanceOf(@origin)) then
+								handle = origin.get(traversedPath)
+							else
+								callable = me.dynResolve.getCallable(@origin, traversedPath)
+								originType = typeof(@callable.origin)
+
+								me.cpsWalker.debug({
+									"type": "PathExpression", 
+									"description": "traversed",
+									"callable": callable
+								})
+
+								if (originType == "function") then
+									handle = me.dynApply.apply(@callable.origin, null, callable.context)
+								else if (originType == "operationContext") then
+									handle = callable.origin.createProxy()
+								else
+									handle = @callable.origin
+								end if
+							end if
+
+							traversedPath = []
+						end if
+					end if
+				else if (currentType == "index") then
+					current = current.value[0]
+
+					if (me.ExpressionManager.isInstanceOf(current)) then
+						value = current.get(opc)
+						traversedPath.push(value)
+					else if (typeof(current) == "path") then
+						value = opc.get(current.value)
+						traversedPath.push(value)
+					else
+						traversedPath.push(current)
+					end if
+				else if (currentType == "slice") then
+					if (not handle) then
+						handle = opc.get(traversedPath)
+						traversedPath = []
+					else if (typeof(handle) != "list") then
+						me.cpsWalker.raise("Invalid type for slice", me, handle)
+					end if
+
+					left = current.left[0]
+
+					if (me.ExpressionManager.isInstanceOf(left)) then
+						left = left.get(opc)
+					end if
+
+					right = current.right[0]
+
+					if (me.ExpressionManager.isInstanceOf(right)) then
+						right = right.get(opc)
+					end if
+
+					handle = handle[left: right]
+				else 
+					handle = current
+				end if
+
+				position = position + 1
+				current = traverselPath.pull()
+			end while
+
+			return {
+				"handle": handle,
+				"path": traversedPath
+			}
+		end function
+
+		evaluateIterator = {
+			"instance": me,
+			"eval": @evaluate,
+			"opc": opc
+		}
+
+		me.cpsWalker.debug({
+			"type": "PathExpression", 
+			"description": "get expr",
+			"line": me.ast.line,
+			"expr": me.expr
+		})
+
+		resultExpr = evaluateIterator.eval(me.expr)
+
+		me.cpsWalker.debug({
+			"type": "PathExpression", 
+			"description": "result",
+			"result": resultExpr,
+			"parent": parentExpr
+		})
+
+		if (not parentExpr) then
+			handleType = typeof(resultExpr.handle)
+
+			if (handleType != "null") then
+				if (resultExpr.path.len == 0) then
+					if (typeof(@resultExpr.handle) == "operationContext") then
+						return resultExpr.handle.createProxy()
+					end if
+					return resultExpr.handle
+				end if
+
+				callable = null
+
+				me.cpsWalker.debug({
+					"type": "PathExpression", 
+					"description": "get callable",
+					"callable": handleType
+				})
+
+				if (handleType == "proxyScope") then
+					ref = me.ScopeRegistry.get(resultExpr.handle.id)
+					callable = ref.getCallable(resultExpr.path)
+				else
+					callable = me.dynResolve.getCallable(resultExpr.handle, resultExpr.path)
+				end if
+
+				me.cpsWalker.debug({
+					"type": "PathExpression", 
+					"description": "is path with handle callable",
+					"callable": callable
+				})
+
+				if (me.OperationManager.isInstanceOf(@callable.origin)) then
+					return callable.origin.run(opc)
+				else if (typeof(@callable.origin) != "function") then
+					return callable.origin
+				end if
+
+				return me.dynApply.apply(@callable.origin, null, callable.context)
+			end if
+
+			value = opc.get(resultExpr.path)
+
+			me.cpsWalker.debug({
+				"type": "PathExpression", 
+				"description": "get with opc",
+				"value": @value,
+				"opc": opc
+			})
+
+			if (typeof(@value) == "proxyFunction") then
+				value = me.FunctionRegistry.get(value.id)
+			end if
+
+			valueType = typeof(@value)
+
+			if (valueType == "function") then
+				callable = opc.getCallable(resultExpr.path)
+				return me.dynApply.apply(@callable.origin, null, callable.context)
+			else if (me.OperationManager.isInstanceOf(value)) then
+				return value.run(opc)
+			else if (valueType == "operationContext" or valueType == "scope") then
+				return value.createProxy()
+			end if
+
+			return value
+		end if
+
+		return resultExpr
+	end function
+
+	ArgumentOperation = {}
+	OperationManager.add("ArgumentOperation", ArgumentOperation)
+
+	ArgumentOperation.dynResolve = dynResolve
+	ArgumentOperation.ExpressionManager = ExpressionManager
+	ArgumentOperation.OperationManager = OperationManager
+
+	ArgumentOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "ArgumentOperation"
+		me.ast = ast
+		me.stack = []
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	ArgumentOperation.get = function(operationContext)
+		me = self
+		stack = me.stack
+		args = []
+
+		for entity in me.stack
+			if (me.ExpressionManager.isInstanceOf(entity)) then
+				args.push(entity.get(operationContext, me))
+			else
+				args.push(entity)
+			end if
+		end for
+
+		return args
+	end function
+
+	BodyOperation = {}
+	OperationManager.add("BodyOperation", BodyOperation)
+
+	BodyOperation.dynResolve = dynResolve
+	BodyOperation.ExpressionManager = ExpressionManager
+	BodyOperation.OperationManager = OperationManager
+
+	BodyOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "BodyOperation"
+		me.ast = ast
+		me.stack = []
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	BodyOperation.run = function(operationContext)
+		me = self
+		eol = {}
+
+		eol.is = function()
+			return false
+		end function
+
+		if (operationContext.type == "LOOP") then
+			eol.context = operationContext.getMemory("loopContext")
+			eol.is = function()
+				return self.context.isBreak or self.context.isContinue
+			end function
+		else if (operationContext.type == "FUNCTION") then
+			eol.context = operationContext.getMemory("functionContext")
+			eol.is = function()
+				return self.context.isReturn
+			end function
+		end if
+
+		for entity in me.stack
+			if (me.ExpressionManager.isInstanceOf(entity)) then
+				entity.get(operationContext)
+			else
+				entity.run(operationContext)
+			end if
+
+			if (eol.is()) then
+				break
+			end if
+		end for
+	end function
+
+	BreakOperation = {}
+	OperationManager.add("BreakOperation", BreakOperation)
+
+	BreakOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "BreakOperation"
+		me.ast = ast
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	BreakOperation.run = function(operationContext)
+		me = self
+		loopContext = operationContext.getMemory("loopContext")
+
+		loopContext.isBreak = true
+	end function
+
+	ContinueOperation = {}
+	OperationManager.add("ContinueOperation", ContinueOperation)
+
+	ContinueOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "ContinueOperation"
+		me.ast = ast
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	ContinueOperation.run = function(operationContext)
+		me = self
+		loopContext = operationContext.getMemory("loopContext")
+
+		loopContext.isContinue = true
+	end function
+
+	DebuggerOperation = {}
+	OperationManager.add("DebuggerOperation", DebuggerOperation)
+
+	DebuggerOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "DebuggerOperation"
+		me.ast = ast
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	DebuggerOperation.run = function(operationContext)
+		debuggerFn = operationContext.get("__debugger")
+		debuggerFn(operationContext)
+	end function
+
+	ElseIfOperation = {}
+	OperationManager.add("ElseIfOperation", ElseIfOperation)
+
+	ElseIfOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "ElseIfOperation"
+		me.ast = ast
+		me.condition = null
+		me.body = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	ElseOperation = {}
+	OperationManager.add("ElseOperation", ElseOperation)
+
+	ElseOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "ElseOperation"
+		me.ast = ast
+		me.body = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	ForOperation = {}
+	OperationManager.add("ForOperation", ForOperation)
+
+	ForOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "ForOperation"
+		me.ast = ast
+		me.variable = null
+		me.iterator = null
+		me.body = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	ForOperation.run = function(operationContext)
+		me = self
+		opc = operationContext.fork("LOOP", "TEMPORARY")
+		variable = me.variable.get(opc, me)
+		iterator = me.iterator.get(opc)
+		loopContext = {
+			"isBreak": false,
+			"isContinue": false
+		}
+
+		opc.setMemory("loopContext", loopContext)
+
+		for value in iterator
+			loopContext.isContinue = false
+			opc.set(variable.path, value)
+			me.body.run(opc)
+			if (loopContext.isContinue) then
+				continue
+			else if (loopContext.isBreak) then
+				break
+			end if
+		end for
+	end function
+
+	FunctionOperation = {}
+	OperationManager.add("FunctionOperation", FunctionOperation)
+
+	FunctionOperation.Base = FunctionOperation
+	FunctionOperation.FunctionRegistry = FunctionRegistry
+	FunctionOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.id = md5(str(time))
+		me.classID = "FunctionOperation"
+		me.ast = ast
+		me.args = null
+		me.body = null
+		me.isOperation = true
+		me.context = null
+		me.isFunction = true
+		me.cpsWalker = cpsWalker
+		me.FunctionRegistry.add(me)
+		return me
+	end function
+
+	FunctionOperation.getType = function()
+		return "function"
+	end function
+
+	FunctionOperation.fork = function(context)
+		me = self
+		newFunction = (new me.Base).constructor(me.ast, me.cpsWalker)
+
+		newFunction.args = me.args
+		newFunction.body = me.body
+		newFunction.context = context
+
+		return newFunction
+	end function
+
+	FunctionOperation.createProxy = function()
+		me = self
+		return {"classID":"proxyFunction","id":me.id}
+	end function
+
+	FunctionOperation.get = function(operationContext)
+		return self
+	end function
+
+	FunctionOperation.toString = function()
+		return "Function"
+	end function
+
+	FunctionOperation.run = function(operationContext)
+		me = self
+		opc = operationContext.fork("FUNCTION", "DEFAULT")
+		incArgs = operationContext.getMemory("args")
+		args = me.args.get(opc)
+		argMap = {}
+		result = null
+		functionContext = {
+			"value": result,
+			"isReturn": false,
+			"context": me.context
+		}
+
+		opc.setMemory("functionContext", functionContext)
+
+		index = 0
+		max = args.len
+
+		while (index < max)
+			if (incArgs.hasIndex(index)) then
+				opc.set(args[index].path[0], incArgs[index])
+			end if
+			index = index + 1
+		end while
+
+		me.body.run(opc)
+
+		return functionContext.value
+	end function
+
+	IfStatementOperation = {}
+	OperationManager.add("IfStatementOperation", IfStatementOperation)
+
+	IfStatementOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "IfStatementOperation"
+		me.ast = ast
+		me.clauses = []
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	IfStatementOperation.run = function(operationContext)
+		me = self
+		clauses = me.clauses
+
+		for clause in clauses
+			clauseType = typeof(clause)
+			if (clauseType == "IfOperation" or clauseType == "ElseIfOperation") then
+				isValid = clause.condition.get(operationContext)
+
+				if (isValid) then
+					clause.body.run(operationContext)
+					return
+				end if
+			else if (clauseType == "ElseOperation") then
+				clause.body.run(operationContext)
+				return
+			else
+				me.cpsWalker.raise(["Invalid operation in if statement.", me, clause].join(" "))
+			end if
+		end for
+	end function
+
+	IfOperation = {}
+	OperationManager.add("IfOperation", IfOperation)
+
+	IfOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "IfOperation"
+		me.ast = ast
+		me.condition = null
+		me.body = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	NewOperation = {}
+	OperationManager.add("NewOperation", NewOperation)
+
+	NewOperation.dynResolve = dynResolve
+	NewOperation.ExpressionManager = ExpressionManager
+	NewOperation.OperationManager = OperationManager
+
+	NewOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "NewOperation"
+		me.ast = ast
+		me.arg = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	NewOperation.get = function(operationContext)
+		me = self
+		arg = me.arg
+
+		me.cpsWalker.debug({
+			"type": "NewOperation", 
+			"description": "start",
+			"arg": @arg
+		})
+
+		if (me.ExpressionManager.isInstanceOf(arg)) then
+			arg = arg.get(operationContext)
+		end if
+
+		if (typeof(arg) != "map") then
+			me.cpsWalker.raise(["Unexpected type for new operator", me, arg].join(" "))
+		end if
+
+		newInstance = {}
+
+		me.cpsWalker.debug({
+			"type": "NewOperation", 
+			"description": "start creation",
+			"arg": @arg
+		})
+
+		for item in arg
+			if (typeof(item.value) == "FunctionOperation") then
+				newInstance[item.key] = item.value.fork(newInstance)
+			else
+				newInstance[item.key] = item.value
+			end if
+		end for
+
+		return new newInstance
+	end function
+
+	NotOperation = {}
+	OperationManager.add("NotOperation", NotOperation)
+
+	NotOperation.dynResolve = dynResolve
+	NotOperation.ExpressionManager = ExpressionManager
+	NotOperation.OperationManager = OperationManager
+
+	NotOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "NotOperation"
+		me.ast = ast
+		me.arg = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	NotOperation.get = function(operationContext)
+		me = self
+		arg = me.arg
+
+		if (me.ExpressionManager.isInstanceOf(arg)) then
+			arg = arg.get(operationContext)
+		end if
+
+		return not arg
+	end function
+
+	ReferenceOperation = {}
+	OperationManager.add("ReferenceOperation", ReferenceOperation)
+
+	ReferenceOperation.dynResolve = dynResolve
+	ReferenceOperation.ExpressionManager = ExpressionManager
+	ReferenceOperation.OperationManager = OperationManager
+
+	ReferenceOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "ReferenceOperation"
+		me.ast = ast
+		me.arg = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	ReferenceOperation.get = function(operationContext)
+		me = self
+		arg = @me.arg
+
+		if (me.ExpressionManager.isInstanceOf(@arg)) then
+			arg = arg.get(operationContext, me)
+		else
+			me.cpsWalker.raise(["Unexpected reference", me].join(" "))
+		end if
+
+		me.cpsWalker.debug({
+			"type": "ReferenceOperation", 
+			"description": "handle",
+			"arg": @arg
+		})
+
+		handle = me.dynResolve.get(@arg, "handle")
+		handleType = typeof(@handle)
+
+		me.cpsWalker.debug({
+			"type": "ReferenceOperation", 
+			"description": "handle type after resolve",
+			"handleType": handleType
+		})
+
+		if (handleType != "null") then
+			if (handleType != "string" and handleType != "number" and handleType != "boolean") then
+				resolvedValue = me.dynResolve.get(@handle, arg.path)
+
+				if (typeof(@resolvedValue) == "FunctionOperation") then
+					return resolvedValue.createProxy()
+				end if
+
+				return @resolvedValue
+			end if
+
+			me.cpsWalker.raise({
+				"type": "ReferenceOperation", 
+				"description": "Unexpected handle in reference statement",
+				"handle": handle
+			})
+		end if
+
+		return operationContext.get(arg.path)
+	end function
+
+	ReturnOperation = {}
+	OperationManager.add("ReturnOperation", ReturnOperation)
+
+	ReturnOperation.ExpressionManager = ExpressionManager
+	ReturnOperation.OperationManager = OperationManager
+
+	ReturnOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "ReturnOperation"
+		me.ast = ast
+		me.arg = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	ReturnOperation.run = function(operationContext)
+		me = self
+		functionContext = operationContext.getMemory("functionContext")
+		arg = me.arg
+
+		if (me.ExpressionManager.isInstanceOf(arg)) then
+			arg = me.arg.get(operationContext)
+		else if (me.OperationManager.isInstanceOf(arg)) then
+			arg = me.arg.get(operationContext)
+		end if
+
+		functionContext.value = arg
+		functionContext.isReturn = true
+	end function
+
+	TopOperation = {}
+	OperationManager.add("TopOperation", TopOperation)
+
+	TopOperation.constructor = function()
+		me = self
+		me.classID = "TopOperation"
+		me.body = null
+		me.isOperation = true
+		return me
+	end function
+
+	TopOperation.run = function(operationContext)
+		me = self
+		opc = operationContext.fork("GLOBAL", "DEFAULT")
+		opc.extend({
+			"globals": opc.createProxy()
+		})
+		me.body.run(opc)
+		return opc
+	end function
+
+	WhileOperation = {}
+	OperationManager.add("WhileOperation", WhileOperation)
+
+	WhileOperation.ExpressionManager = ExpressionManager
+	WhileOperation.OperationManager = OperationManager
+
+	WhileOperation.constructor = function(ast, cpsWalker)
+		me = self
+		me.classID = "WhileOperation"
+		me.ast = ast
+		me.condition = null
+		me.body = null
+		me.isOperation = true
+		me.cpsWalker = cpsWalker
+		return me
+	end function
+
+	WhileOperation.run = function(operationContext)
+		me = self
+		opc = operationContext.fork("LOOP", "TEMPORARY")
+		loopContext = {
+			"isBreak": false,
+			"isContinue": false
+		}
+		condition = {
+			"instance": me
+		}
+		condition.is = function()
+			me = self.instance
+
+			if (me.ExpressionManager.isInstanceOf(me.condition)) then
+				return me.condition.get(opc)
+			end if
+
+			return me.condition
+		end function
+
+		opc.setMemory("loopContext", loopContext)
+
+		while (condition.is())
+			loopContext.isContinue = false
+			me.body.run(opc)
+			if (loopContext.isContinue) then
+				continue
+			else if (loopContext.isBreak) then
+				break
+			end if
+		end while
+	end function
+
+	AstMapping = {}
+
+	AstMapping.AssignmentStatement = function(cpsWalker, item)
+		AssignExpression = cpsWalker.ExpressionManager.get("AssignExpression")
+		return (new AssignExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.MemberExpression = function(cpsWalker, item)
+		PathExpression = cpsWalker.ExpressionManager.get("PathExpression")
+		return (new PathExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.FunctionDeclaration = function(cpsWalker, item)
+		FunctionOperation = cpsWalker.OperationManager.get("FunctionOperation")
+		ArgumentOperation = cpsWalker.OperationManager.get("ArgumentOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new FunctionOperation).constructor(item, cpsWalker)
+		args = (new ArgumentOperation).constructor(item.parameters, cpsWalker)
+		body = (new BodyOperation).constructor(item.body, cpsWalker)
+
+		for parameterItem in item.parameters
+			args.stack.push(cpsWalker.visit(parameterItem))
+		end for
+
+		for bodyItem in item.body
+			body.stack.push(cpsWalker.visit(bodyItem))
+		end for
+
+		op.args = args
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.MapConstructorExpression = function(cpsWalker, item)
+		MapExpression = cpsWalker.ExpressionManager.get("MapExpression")
+		return (new MapExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.Identifier = function(cpsWalker, item)
+		PathExpression = cpsWalker.ExpressionManager.get("PathExpression")
+		return (new PathExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.ReturnStatement = function(cpsWalker, item)
+		ReturnOperation = cpsWalker.OperationManager.get("ReturnOperation")
+		op = (new ReturnOperation).constructor(item, cpsWalker)
+
+		op.arg = cpsWalker.visit(item.arguments[0])
+
+		return op
+	end function
+
+	AstMapping.NumericLiteral = function(cpsWalker, item)
+		return item.value
+	end function
+
+	AstMapping.WhileStatement = function(cpsWalker, item)
+		WhileOperation = cpsWalker.OperationManager.get("WhileOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new WhileOperation).constructor(item, cpsWalker)
+		body = (new BodyOperation).constructor(item.body, cpsWalker)
+
+		op.condition = cpsWalker.visit(item.condition)
+
+		for bodyItem in item.body
+			body.stack.push(cpsWalker.visit(bodyItem))
+		end for
+
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.StringLiteral = function(cpsWalker, item)
+		return item.value
+	end function
+
+	AstMapping.IndexExpression = function(cpsWalker, item)
+		PathExpression = cpsWalker.ExpressionManager.get("PathExpression")
+		return (new PathExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.FeatureEnvarExpression = function(cpsWalker, item)
+		exit("Not supported")
+	end function
+
+	AstMapping.IfShortcutStatement = function(cpsWalker, item)
+		IfStatementOperation = cpsWalker.OperationManager.get("IfStatementOperation")
+		op = (new IfStatementOperation).constructor(item, cpsWalker)
+
+		for clausesItem in item.clauses
+			op.clauses.push(cpsWalker.visit(clausesItem))
+		end for
+
+		return op
+	end function
+
+	AstMapping.IfShortcutClause = function(cpsWalker, item)
+		IfOperation = cpsWalker.OperationManager.get("IfOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new IfOperation).constructor(item, cpsWalker)
+		body = (new BodyOperation).constructor(item.statement, cpsWalker)
+
+		op.condition = cpsWalker.visit(item.condition)
+
+		body.stack.push(cpsWalker.visit(item.statement))
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.ElseifShortcutClause = function(cpsWalker, item)
+		ElseIfOperation = cpsWalker.OperationManager.get("ElseIfOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new ElseIfOperation).constructor(item, cpsWalker)
+		body = (new BodyOperation).constructor(item.statement, cpsWalker)
+
+		op.condition = cpsWalker.visit(item.condition)
+
+		body.stack.push(cpsWalker.visit(item.statement))
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.ElseShortcutClause = function(cpsWalker, item)
+		ElseOperation = cpsWalker.OperationManager.get("ElseOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new ElseOperation).constructor(item, cpsWalker)
+		body = (new BodyOperation).constructor(item.statement, cpsWalker)
+
+		body.stack.push(cpsWalker.visit(item.statement))
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.NilLiteral = function(cpsWalker, item)
+		return null
+	end function
+
+	AstMapping.ForGenericStatement = function(cpsWalker, item)
+		ForOperation = cpsWalker.OperationManager.get("ForOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new ForOperation).constructor(item, cpsWalker)
+		body = (new BodyOperation).constructor(item.body, cpsWalker)
+
+		op.variable = cpsWalker.visit(item.variable)
+		op.iterator = cpsWalker.visit(item.iterator)
+
+		for bodyItem in item.body
+			body.stack.push(cpsWalker.visit(bodyItem))
+		end for
+
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.IfStatement = function(cpsWalker, item)
+		IfStatementOperation = cpsWalker.OperationManager.get("IfStatementOperation")
+		op = (new IfStatementOperation).constructor(item, cpsWalker)
+
+		for clausesItem in item.clauses
+			op.clauses.push(cpsWalker.visit(clausesItem))
+		end for
+
+		return op
+	end function
+
+	AstMapping.IfClause = function(cpsWalker, item)
+		IfOperation = cpsWalker.OperationManager.get("IfOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new IfOperation).constructor(item, cpsWalker)
+		body = (new BodyOperation).constructor(item.body, cpsWalker)
+
+		op.condition = cpsWalker.visit(item.condition)
+
+		for bodyItem in item.body
+			body.stack.push(cpsWalker.visit(bodyItem))
+		end for
+
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.ElseifClause = function(cpsWalker, item)
+		ElseIfOperation = cpsWalker.OperationManager.get("ElseIfOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new ElseIfOperation).constructor(item, cpsWalker)
+		body = (new BodyOperation).constructor(item.body, cpsWalker)
+
+		op.condition = cpsWalker.visit(item.condition)
+
+		for bodyItem in item.body
+			body.stack.push(cpsWalker.visit(bodyItem))
+		end for
+
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.ElseClause = function(cpsWalker, item)
+		ElseOperation = cpsWalker.OperationManager.get("ElseOperation")
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new ElseOperation).constructor(item, cpsWalker)
+		body = (new BodyOperation).constructor(item.body, cpsWalker)
+
+		for bodyItem in item.body
+			body.stack.push(cpsWalker.visit(bodyItem))
+		end for
+
+		op.body = body
+
+		return op
+	end function
+
+	AstMapping.NegationExpression = function(cpsWalker, item)
+		NotOperation = cpsWalker.OperationManager.get("NotOperation")
+		op = (new NotOperation).constructor(item, cpsWalker)
+
+		op.arg = cpsWalker.visit(item.argument)
+
+		return op
+	end function
+
+	AstMapping.ContinueStatement = function(cpsWalker, item)
+		ContinueOperation = cpsWalker.OperationManager.get("ContinueOperation")
+		return (new ContinueOperation).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.BreakStatement = function(cpsWalker, item)
+		BreakOperation = cpsWalker.OperationManager.get("BreakOperation")
+		return (new BreakOperation).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.CallExpression = function(cpsWalker, item)
+		CallExpression = cpsWalker.ExpressionManager.get("CallExpression")
+		return (new CallExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.CallStatement = function(cpsWalker, item)
+		CallExpression = cpsWalker.ExpressionManager.get("CallExpression")
+		return (new CallExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.FeatureImportExpression = function(cpsWalker, item)
+		exit("Not supported")
+	end function
+
+	AstMapping.FeatureIncludeExpression = function(cpsWalker, item)
+		exit("Not supported")
+	end function
+
+	AstMapping.ImportCodeExpression = function(cpsWalker, item)
+		exit("Not supported")
+	end function
+
+	AstMapping.FeatureDebuggerExpression = function(cpsWalker, item)
+		DebuggerOperation = cpsWalker.OperationManager.get("DebuggerOperation")
+		return (new DebuggerOperation).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.ListConstructorExpression = function(cpsWalker, item)
+		ListExpression = cpsWalker.ExpressionManager.get("ListExpression")
+		return (new ListExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.BooleanLiteral = function(cpsWalker, item)
+		return item.value
+	end function
+
+	AstMapping.EmptyExpression = function(cpsWalker, item)
+		return
+	end function
+
+	AstMapping.BinaryExpression = function(cpsWalker, item)
+		LogicalAndBinaryExpression = cpsWalker.ExpressionManager.get("LogicalAndBinaryExpression")
+		return (new LogicalAndBinaryExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.BinaryNegatedExpression = function(cpsWalker, item)
+		BinaryNegatedExpression = cpsWalker.ExpressionManager.get("BinaryNegatedExpression")
+		return (new BinaryNegatedExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.LogicalExpression = function(cpsWalker, item)
+		LogicalAndBinaryExpression = cpsWalker.ExpressionManager.get("LogicalAndBinaryExpression")
+		return (new LogicalAndBinaryExpression).constructor(item, cpsWalker)
+	end function
+
+	AstMapping.UnaryExpression = function(cpsWalker, item)
+		op = null
+		ReferenceOperation = cpsWalker.OperationManager.get("ReferenceOperation")
+		NewOperation = cpsWalker.OperationManager.get("NewOperation")
+
+		if ("@" == item.operator) then
+			op = (new ReferenceOperation).constructor(item, cpsWalker)
+		else if ("new" == item.operator) then
+			op = (new NewOperation).constructor(item, cpsWalker)
+		end if
+
+		op.arg = cpsWalker.visit(item.argument)
+
+		return op
+	end function
+
+	AstMapping.Chunk = function(cpsWalker, item)
+		BodyOperation = cpsWalker.OperationManager.get("BodyOperation")
+		op = (new BodyOperation).constructor(item, cpsWalker)
+
+		for bodyItem in item.body
+			op.stack.push(cpsWalker.visit(bodyItem))
+		end for
+
+		return op
+	end function
+
+	CPSEvaluatorWalker = {}
+	CPSEvaluatorWalker.defaultMapper = AstMapping
+	CPSEvaluatorWalker.OperationManager = OperationManager
+	CPSEvaluatorWalker.ExpressionManager = ExpressionManager
+
+	CPSEvaluatorWalker.constructor = function(debug, raise)
+		me = self
+
+		me.mapper = me.defaultMapper
+		me.debug = @debug
+		me.raise = @raise
+		me.status = {"errors":[]}
+
+		return me
+	end function
+
+	CPSEvaluatorWalker.visit = function(o)
+		me = self
+
+		if (o == null) then
+			return
+		end if
+
+		if (o.type == null) then
+			me.exception("Unexpected as type")
+			return
+		end if
+
+		if (not me.mapper.hasIndex(o.type)) then
+			me.exception("Type does not exist " + o.type)
+			return
+		end if
+
+		fn = @me.mapper[o.type]
+		result = fn(me, o)
+
+		return result
+	end function
+
+	CPSEvaluatorWalker.exception = function(message) 
+		me = self
+		errMessage = "[CPSEvaluatorWalker] Error: " + message
+		debug(errMessage)
+		me.status.errors.push(errMessage)
+		return null
+	end function
+
+	CPSEvaluatorWalker.getErrors = function()
+		return self.status.errors
+	end function
+
+	CPSEvaluator = {}
+
+	CPSEvaluator.TopOperation = TopOperation
+	CPSEvaluator.CPSEvaluatorWalker = CPSEvaluatorWalker
+	CPSEvaluator.constructor = function(chunk, debug, raise)
+		me = self
+
+		me.chunk = chunk
+		me.debug = @debug
+		me.raise = @raise
+
+		if (@me.debug == null) then
+			me.debug = @me.defaultDebug
+		end if
+
+		if (@me.raise == null) then
+			me.raise = @me.defaultRaise
+		end if
+
+		return me
+	end function
+
+	CPSEvaluator.defaultDebug = function()
+		return
+	end function
+
+	CPSEvaluator.defaultRaise = function()
+		return
+	end function
+
+	CPSEvaluator.digest = function()
+		me = self
+		cpsWalker = (new me.CPSEvaluatorWalker).constructor(@me.debug, @me.raise)
+		topOperation = (new me.TopOperation).constructor()
+
+		topOperation.body = cpsWalker.visit(me.chunk)
+
+		return topOperation
+	end function
+
+	Scope = {}
+
+	Scope.dynResolve = dynResolve
+
+	Scope.ScopeRegistry = ScopeRegistry
+	Scope.constructor = function(context)
+		me = self
+		me.id = md5(str(time))
+		me.classID = "scope"
+		me.isScope = true
+		me.context = context
+		me.refs = {}
+		me.ScopeRegistry.add(me)
+		return me
+	end function
+
+	Scope.valueOf = function()
+		return self.refs
+	end function
+
+	Scope.createProxy = function()
+		me = self
+		return {"classID":"proxyScope","id":me.id}
+	end function
+
+	Scope.extend = function(map)
+		me = self
+
+		if map == null then
+			map = {}
+		end if
+
+		for ref in map
+			me.refs[ref.key] = @ref.value
+		end for
+
+		return me
+	end function
+
+	Scope.set = function(path, value)
+		me = self
+		if typeof(path) == "string" then
+			path = path.split(".")
+		end if
+		traversalPath = [] + path
+		refs = me.refs
+		last = traversalPath.pop()
+		current = traversalPath.pull()
+		origin = refs
+
+		if (current != null) then
+			if (typeof(me.dynResolve.get(@origin, current)) != "null") then
+				origin = @origin[current]
+				originType = typeof(@origin)
+
+				if (originType == "list" or originType == "map") then
+					return me.dynResolve.set(@origin, traversalPath + [last], @value)
+				else if (originType == "scope") then
+					return origin.set(traversalPath + [last], @value)
+				end if
+			else if (me.dynResolve.get(me, "context.previous") and not me.dynResolve.get(me, "context.previous.isProteced")) then
+				return me.context.previous.set(path, @value)
+			else if (traversalPath.len > 0) then
+				exit("Cannot set path " + path.join("."))
+			end if
+		end if
+		
+		originType = typeof(@origin)
+
+		if (@origin != null and originType != "boolean" and originType != "string" and originType != "number" and originType != "null") then
+			origin[last] = @value 
+		else
+			exit("Cannot set path " + path.join("."))
+		end if
+	end function
+
+	Scope.get = function(path)
+		me = self
+		if typeof(path) == "string" then
+			path = path.split(".")
+		end if
+		traversalPath = [] + path
+		refs = me.refs
+		current = traversalPath.pull()
+		origin = refs
+
+		if (current != null) then
+			if (typeof(me.dynResolve.get(@origin, current)) != "null") then
+				origin = @origin[current]
+				originType = typeof(@origin)
+				
+				if (traversalPath.len > 0) then
+					if (originType == "scope") then
+						return origin.get(traversalPath)
+					else if (originType != "number" or originType != "boolean") then
+						return me.dynResolve.get(@origin, traversalPath)
+					end if
+				end if
+			else if (me.dynResolve.get(me, "context.previous")) then
+				return me.context.previous.get(path)
+			else
+				origin = null
+			end if
+		end if
+
+		return @origin
+	end function
+
+	Scope.getCallable = function(path)
+		me = self
+		if typeof(path) == "string" then
+			path = path.split(".")
+		end if
+		traversalPath = [] + path
+		refs = me.refs
+		current = traversalPath.pull()
+		origin = refs
+		context = null
+
+		if (current != null) then
+			if (typeof(me.dynResolve.get(@origin, current)) != "null") then
+				context = @origin
+				origin = @origin[current]
+				originType = typeof(@origin)
+
+				if (originType == "scope") then
+					return origin.getCallable(traversalPath)
+				else if (originType != "number" or originType != "boolean") then
+					return me.dynResolve.getCallable(@origin, traversalPath)
+				end if
+			else if (me.dynResolve.get(me, "context.previous")) then
+				return me.context.previous.getCallable(path)
+			else
+				origin = null
+			end if
+		end if
+
+		return {
+			"origin": @origin,
+			"context": context
+		}
+	end function
+
+	OperationContext = {}
+
+	OperationContext.TYPE = {
+		"API": "API",
+		"GLOBAL": "GLOBAL",
+		"FUNCTION": "FUNCTION",
+		"LOOP": "LOOP",
+		"MAP": "MAP",
+		"CALL": "CALL"
+	}
+
+	OperationContext.STATE = {
+		"TEMPORARY": "TEMPORARY",
+		"DEFAULT": "DEFAULT"
+	}
+	
+	OperationContext.Base = OperationContext
+	OperationContext.Scope = Scope
+	OperationContext.constructor = function(isProteced = false)
+		me = self
+		me.classID = "operationContext"
+		me.previous = null
+		me.type = me.TYPE.API
+		me.state = me.STATE.DEFAULT
+		me.scope = (new me.Scope).constructor(me)
+		me.isProteced = isProteced
+		me.memory = {}
+		return me
+	end function
+
+	OperationContext.valueOf = function()
+		return self.scope.valueOf()
+	end function
+
+	OperationContext.createProxy = function()
+		return self.scope.createProxy()
+	end function
+
+	OperationContext.extend = function(map)
+		me = self
+		if (me.state == me.STATE.TEMPORARY) then
+			me.previous.extend(map)
+		else
+			me.scope.extend(map)
+		end if
+		return me
+	end function
+
+	OperationContext.set = function(path, value)
+		me = self
+		if (me.state == me.STATE.TEMPORARY) then
+			me.previous.set(path, value)
+		else
+			me.scope.set(path, value)
+		end if
+		return me
+	end function
+
+	OperationContext.get = function(path)
+		me = self
+		if (me.state == me.STATE.TEMPORARY) then
+			return me.previous.get(path)
+		end if
+		return me.scope.get(path)
+	end function
+
+	OperationContext.setMemory = function(key, value)
+		me = self
+		me.memory[key] = value
+		return me
+	end function
+
+	OperationContext.getMemory = function(key)
+		me = self
+		if (me.memory.hasIndex(key)) then
+			return me.memory[key]
+		end if
+		return null
+	end function
+
+	OperationContext.getCallable = function(path)
+		me = self
+		if (me.state == me.STATE.TEMPORARY) then
+			return me.previous.getCallable(path)
+		end if
+		return me.scope.getCallable(path)
+	end function
+
+	OperationContext.fork = function(type, state)
+		me = self
+		opc = (new me.Base).constructor()
+
+		opc.previous = me
+		opc.type = type
+		opc.state = state
+
+		if (me.type == me.TYPE.FUNCTION or me.type == me.TYPE.GLOBAL) then
+			opc.extend({
+				"locals": opc.createProxy()
+			})
+		end if
+
+		if (type != me.TYPE.FUNCTION) then
+			if (type != me.TYPE.LOOP) then
+				opc.setMemory("loopContext", me.getMemory("loopContext"))
+			end if
+
+			opc.setMemory("functionContext", me.getMemory("functionContext"))
+		end if
+
+		return opc
+	end function
+
+	Interpreter = {}
+
+	Interpreter.CodeParser = CodeParser
+	Interpreter.EventEmitter = EventEmitter
+	Interpreter.CPSEvaluator = CPSEvaluator
+	Interpreter.OperationContext = OperationContext
+	Interpreter.constructor = function(code, api, params, eventEmitter)
+		me = self
+
+		me.code = code
+		me.api = api
+		me.params = params
+		me.emitter = eventEmitter
+		me.status = {"errors":[]}
+
+		if (me.emitter == null) then
+			me.emitter = (new me.EventEmitter).constructor()
+		end if
+
+		return me
+	end function
+
+	Interpreter.hasError = function() 
+		return self.status.errors.len > 0
+	end function
+
+	Interpreter.getErrors = function()
+		return self.status.errors
+	end function
+
+	Interpreter.raise = function(errorObject)
+		debug("[ERROR] " + errorObject)
+	end function
+
+	Interpreter.debug = function(errorObject)
+		debug("[DEBUG] " + errorObject)
+	end function
+
+	Interpreter.digest = function()
+		me = self
+
+		parser = (new me.CodeParser).constructor(me.code)
+		chunk = parser.parseChunk()
+
+		if (parser.hasError()) then
+			me.status.errors = me.status.errors + parser.getErrors()
+			return null
+		end if
+
+		cps = (new me.CPSEvaluator).constructor(chunk, @me.debug, @me.raise).digest()
+		mainContext = (new me.OperationContext).constructor(true)
+
+		me.api.params = me.params
+		
+		mainContext.extend(me.api)
+
+		return cps.run(mainContext)
+	end function
+
+	return Interpreter
+end function
+
+injector.def("interpreter", ["dynResolve", "parser", "eventEmitter", "dynApply"], @interpreterModule)

@@ -1,0 +1,433 @@
+dynApply = {}
+methods = {}
+
+methods[0] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref)
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec()
+end function
+
+methods[1] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0])
+end function
+
+methods[2] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1])
+end function
+
+methods[3] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1], @c.args[2])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1], @c.args[2])
+end function
+
+methods[4] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1], @c.args[2], @c.args[3])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1], @c.args[2], @c.args[3])
+end function
+
+methods[5] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4])
+end function
+
+methods[6] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5])
+end function
+
+methods[7] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5], @c.args[6])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5], @c.args[6])
+end function
+
+methods[8] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5], @c.args[6], @c.args[7])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5], @c.args[6], @c.args[7])
+end function
+
+methods[9] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5], @c.args[6], @c.args[7], @c.args[8])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5], @c.args[6], @c.args[7], @c.args[8])
+end function
+
+methods[10] = function(c)
+	if (typeof(c.ctx) == "dynProxy") then
+		fn = @c.fn
+		return fn(c.ctx.__ref, @c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5], @c.args[6], @c.args[7], @c.args[8], @c.args[9])
+	end if
+	c.ctx.__dynApplyExec = @c.fn
+	return c.ctx.__dynApplyExec(@c.args[0], @c.args[1], @c.args[2], @c.args[3], @c.args[4], @c.args[5], @c.args[6], @c.args[7], @c.args[8], @c.args[9])
+end function
+
+dynApply.METHODS = methods
+
+dynApply.apply = function(fn, args, context)
+	me = self
+	if (args == null) then
+		args = []
+	end if
+	if (context == null) then
+		context = globals
+	end if
+	x = args.len
+	if (me.METHODS.hasIndex(x)) then
+		m = @me.METHODS[x]
+		return m({"classID": "apply","ctx": context,"fn": @fn,"args": args})
+	end if
+	
+	exit("Error: dynApply only supports 10 arguments")
+end function
+
+dynResolve = {}
+dynResolve.hasIndex = @({})["hasIndex"]
+
+dynResolve.MODES = {"STRICT": 0,"WARN": 1,"IGNORE": 2}
+
+dynResolve.mode = dynResolve.MODES.IGNORE
+
+dynResolve.getMapIsa = function(v)
+	handle = {}
+	proxy = {}
+	
+	proxy.__ref = v
+	proxy.classID = "dynProxy"
+	proxy.hasIndex = @handle["hasIndex"]
+	proxy.indexOf = @handle["indexOf"]
+	proxy.push = @handle["push"]
+	proxy.remove = @handle["remove"]
+	proxy.indexes = @handle["indexes"]
+	proxy.len = @handle["len"]
+	proxy.pop = @handle["pop"]
+	proxy.shuffle = @handle["shuffle"]
+	proxy.sum = @handle["sum"]
+	proxy.values = @handle["values"]
+	
+	return proxy
+end function
+
+dynResolve.getListIsa = function(v)
+	handle = []
+	proxy = {}
+	
+	proxy.__ref = v
+	proxy.classID = "dynProxy"
+	proxy.hasIndex = @handle["hasIndex"]
+	proxy.indexOf = @handle["indexOf"]
+	proxy.remove = @handle["remove"]
+	proxy.join = @handle["join"]
+	proxy.push = @handle["push"]
+	proxy.pop = @handle["pop"]
+	proxy.pull = @handle["pull"]
+	proxy.shuffle = @handle["shuffle"]
+	proxy.reverse = @handle["reverse"]
+	proxy.sort = @handle["sort"]
+	proxy.indexes = @handle["indexes"]
+	proxy.len = @handle["len"]
+	proxy.sum = @handle["sum"]
+	proxy.values = @handle["values"]
+	
+	return proxy
+end function
+
+dynResolve.getStringIsa = function(v)
+	handle = ""
+	proxy = {}
+	
+	proxy.__ref = v
+	proxy.classID = "dynProxy"
+	proxy.remove = @handle["remove"]
+	proxy.hasIndex = @handle["hasIndex"]
+	proxy.indexOf = @handle["indexOf"]
+	proxy.lastIndexOf = @handle["lastIndexOf"]
+	proxy.split = @handle["split"]
+	proxy.replace = @handle["replace"]
+	proxy.trim = @handle["trim"]
+	proxy.indexes = @handle["indexes"]
+	proxy.code = @handle["code"]
+	proxy.len = @handle["len"]
+	proxy.lower = @handle["lower"]
+	proxy.upper = @handle["upper"]
+	proxy.val = @handle["val"]
+	proxy.values = @handle["values"]
+	proxy.to_int = @handle["to_int"]
+	
+	return proxy
+end function
+
+dynResolve.API_KEYS = ["aptclientLib", "computer", "cryptoLib", "file", "libMail", "MetaxploitLib", "MetaLib", "MetaMail", "NetSession", "port", "router", "shell", "ftpshell"]
+dynResolve.getApiIsa = function(v)
+	handle = ""
+	proxy = {}
+	
+	proxy.__ref = v
+	proxy.classID = "dynProxy"
+	
+	for item in v.__isa
+		proxy[item.key] = @item.value
+	end for
+	
+	return proxy
+end function
+
+dynResolve.detach = function(v)
+	me = self
+	hasIndex = @me.hasIndex
+	
+	if (me.usesNativeIsa(@v)) then
+		type = typeof(v)
+		
+		if (type == "map") then
+			return me.getMapIsa(v)
+		else if (type == "list") then
+			return me.getListIsa(v)
+		else if (type == "string") then
+			return me.getStringIsa(v)
+		else if (me.API_KEYS.indexOf(type) != null) then
+			return me.getApiIsa(v)
+		end if
+	end if
+	
+	return @v
+end function
+
+dynResolve.usesNativeIsa = function(v)
+	me = self
+	type = typeof(@v)
+	return type == "map" or type == "list" or type == "string" or me.API_KEYS.indexOf(type) != null
+end function
+
+dynResolve.get = function(v, path, defaultValue)
+	if typeof(path) == "string" then
+		path = path.split(".")
+	end if
+
+	me = self
+	origin = @v
+	hasIndex = @me.hasIndex
+	traversed = [] + path
+
+	while @v != null
+		if (traversed.len == 0) then break
+
+		valType = typeof(@v)
+		currentPath = traversed.pull()
+
+		if ((valType == "list" or valType == "string") and typeof(currentPath) == "string") then
+			currentPath = currentPath.to_int
+
+			if (typeof(currentPath) == "string") then
+				v = me.detach(v)
+			end if
+		end if
+		if (hasIndex(@v, currentPath)) then
+			v = @v[currentPath]
+		else if (typeof(@v) != "string" and hasIndex(@v, "__isa") and hasIndex(v.__isa, currentPath)) then
+			v = @v.__isa[currentPath]
+		else if (me.usesNativeIsa(@v)) then
+			detached = me.detach(v)
+			
+			if (detached.hasIndex(currentPath)) then
+				v = @v[currentPath]
+			else
+				v = null
+			end if
+		else
+			v = null
+		end if
+	end while
+
+	if (typeof(@v) == "null") then
+		if (typeof(@defaultValue) == "null") then
+			me.raise("[WARNING] Cannot get value " + path.join(" ") + " from " + @origin)
+		end if
+		return @defaultValue
+	end if
+
+	return @v
+end function
+
+dynResolve.set = function(v, path, r)
+	if typeof(path) == "string" then
+		path = path.split(".")
+	end if
+
+	me = self
+	origin = @v
+	hasIndex = @me.hasIndex 
+	traversed = [] + path
+	last = traversed.pop()
+
+	if (last == null) then
+		return false
+	end if
+
+	v = me.get(v, traversed)
+	valType = typeof(@v)
+
+	if (typeof(v) == "null" or valType == "string" or valType == "boolean" or valType == "number" or valType == "function") then
+		me.raise("[WARNING] Cannot set value " + path.join(" ")  + " on " + @origin)
+		return false
+	end if
+
+	v[last] = @r
+
+	return true
+end function
+
+dynResolve.getCallable = function(v, path)
+	if typeof(path) == "string" then
+		path = path.split(".")
+	end if
+	
+	me = self
+	origin = @v
+	context = null
+	hasIndex = @me.hasIndex 
+	traversed = [] + path
+	
+	while @v != null
+		if (traversed.len == 0) then break
+		valType = typeof(@v)
+		currentPath = traversed.pull()
+		if ((valType == "list" or valType == "string") and typeof(currentPath) == "string") then
+			currentPath = currentPath.to_int
+			if (typeof(currentPath) == "string") then
+				context = v
+				v = me.detach(v)
+				valType = typeof(@v)
+			end if
+		end if
+		if (me.API_KEYS.indexOf(valType) != null) then
+			context = me.detach(v)
+			v = @v[currentPath]
+		else if (hasIndex(@v, currentPath)) then
+			context = @v
+			v = @v[currentPath]
+		else if (valType != "string" and hasIndex(@v, "__isa") and hasIndex(v.__isa, currentPath)) then
+			context = @v
+			v = @v.__isa[currentPath]
+		else if (me.usesNativeIsa(@v)) then
+			context = v
+			detached = me.detach(v)
+			
+			if (detached.hasIndex(currentPath)) then
+				v = @v[currentPath]
+			else
+				v = null
+			end if
+		else
+			v = null
+		end if
+	end while
+	if (typeof(@v) == "null") then
+		me.raise("[WARNING] Cannot get callable value " + path.join(" ") + " from " + @origin)
+	end if
+	return {"origin": @v,"context": context}
+end function
+
+dynResolve.raise = function(msg)
+	me = self
+	if (me.mode == me.MODES.WARN) then
+		print(msg)
+	else if (me.mode == me.MODES.STRICT) then
+		exit(msg)
+	end if
+end function
+
+computer = get_shell.host_computer
+callableLocalIp = dynResolve.getCallable(computer, "local_ip")
+hasIndex = @dynResolve.hasIndex
+
+print(dynApply.apply(@callableLocalIp.origin, null, callableLocalIp.context))
+
+test = {}
+test.lll = "was"
+test.create = function()
+	self.classID = "test"
+	return self
+end function
+
+test.mmm = function()
+	return "xxx"
+end function
+
+test.rrr = function(a)
+	return self.lll + a
+end function
+
+foo = {}
+foo.test = test
+foo.create = function()
+	self.classID = "foo"
+	self.i = (new self.test).create()
+	return self
+end function
+
+xxx = (new foo).create()
+
+testStr = "123"
+
+print("get i.mmm")
+print(dynResolve.get(xxx, "i.mmm"))
+print(dynResolve.get(xxx, "i.hasIndex"))
+print(dynResolve.get("was", "hasIndex"))
+
+codeA = dynResolve.getCallable("was", "1.code")
+codeB = dynResolve.getCallable("1;2;3", "split")
+
+print(dynApply.apply(@codeA.origin, null, codeA.context))
+print(dynApply.apply(@codeB.origin, [";"], codeB.context))
+
+print("Set 123 " + dynResolve.set(123, "i.another", 555))
+print("Set i.another " + dynResolve.set(xxx, "i.another", 555))
+
+print("get i.another")
+print(dynResolve.get(xxx, "i.another"))
+
+print("getCallable i.rrr")
+callable = dynResolve.getCallable(xxx, "i.rrr")
+print(callable)
+
+print("dynApply callable")
+print(dynApply.apply(@callable.origin, [123], callable.context)

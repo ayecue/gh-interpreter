@@ -1,0 +1,83 @@
+#include ./utils/interpreter;
+#include ./utils/dynApply;
+#include ./utils/dynResolve;
+
+teditInterpreterModule = function(deps)
+	Interpreter = deps[0]
+
+	TEditInterpreter = {}
+
+	TEditInterpreter.Interpreter = Interpreter
+
+	TEditInterpreter.execute = function(code, params)
+		me = self
+
+		api = {}
+		api.print = @print
+		api.wait = @wait
+		api.time = @time
+		api.typeof = @typeof
+		api.md5 = @md5
+		api.get_router = @get_router
+		api.get_shell = @get_shell
+		api.nslookup = @nslookup
+		api.whois = @whois
+		api.is_valid_ip = @is_valid_ip
+		api.is_lan_ip = @is_lan_ip
+		api.command_info = @command_info
+		api.current_date = @current_date
+		api.current_path = @current_path
+		api.parent_path = @parent_path
+		api.home_dir = @home_dir
+		api.program_path = @program_path
+		api.active_user = @active_user
+		api.user_mail_address = @user_mail_address
+		api.user_bank_number = @user_bank_number
+		api.format_columns = @format_columns
+		api.user_input = @user_input
+		api.include_lib = @include_lib
+		api.bitwise = @bitwise
+		api.clear_screen = @clear_screen
+		api.slice = @slice
+		api.str = @str
+		api.hash = @hash
+		api.abs = @abs
+		api.acos = @acos
+		api.asin = @asin
+		api.atan = @atan
+		api.tan = @tan
+		api.cos = @cos
+		api.sin = @sin
+		api.char = @char
+		api.floor = @floor
+		api.range = @range
+		api.round = @round
+		api.rnd = @rnd
+		api.sign = @sign
+		api.sqrt = @sqrt
+		api.str = @str
+		api.ceil = @ceil
+		api.pi = @pi
+		api.include_lib = @include_lib
+
+		startTime = time
+
+		print("Executing " + char(10) + code)
+
+		interpreter = (new me.Interpreter).constructor(code, api, params)
+
+		globalContext = interpreter.digest()
+
+		if (interpreter.hasError()) then
+			print(interpreter.getErrors().join(char(10)))
+		end if
+
+		print("Executed in " + (time - startTime))
+		print("Global Context: ")
+		print(globalContext.scope.refs)
+	end function
+
+	return TEditInterpreter
+end function
+
+injector.def("teditInterpreter", ["interpreter"], @teditInterpreterModule)

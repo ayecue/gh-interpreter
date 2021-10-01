@@ -103,6 +103,9 @@ parserModule = function(deps)
 	AST.negationExpression = function(arg, line)
 		return {"type": "NegationExpression","argument": arg,"line": line};
 	end function
+	AST.featureDebuggerExpression = function(line)
+        return {"type": "FeatureDebuggerExpression","line": line}
+    end function
 
 	Parser = {}
 	Parser.Lexer = Lexer
@@ -824,6 +827,13 @@ parserModule = function(deps)
 			else if ("break" == value) then
 				me.next()
 				return me.AST.breakStatement()
+			else if ("break" == value) then
+				me.next()
+				return me.AST.breakStatement()
+			else if ("debugger" == value) then
+				base = me.AST.featureDebuggerExpression(me.token.line)
+				me.next()
+				return base
 			end if
 		else if ("eol" == me.token.type or "cmt" == me.token.type or "nol" == me.token.type) then
 			me.next()

@@ -1,8 +1,7 @@
 interpreterModule = function(deps)
 	dynResolve = deps[0]
 	CodeParser = deps[1]
-	EventEmitter = deps[2]
-	dynApply = deps[3]
+	dynApply = deps[2]
 
 	ExpressionManager = {"members":{}}
 
@@ -131,7 +130,7 @@ interpreterModule = function(deps)
 			opc = self.opc
 
 			if (not me.ExpressionManager.isInstanceOf(node.left)) then
-				me.cpsWalker.raise(["Unexpected left assignment", me, left].join(" "))
+				opc.debugger.raise(["Unexpected left assignment", me, left].join(" "))
 			end if
 
 			left = node.left.get(opc, me.expr)
@@ -156,14 +155,14 @@ interpreterModule = function(deps)
 					end if
 				end if
 			else if (@right == null) then
-				me.cpsWalker.raise(["Unexpected right assignment", me, @right].join(" "))
+				opc.debugger.raise(["Unexpected right assignment", me, @right].join(" "))
 			end if
 
 			if (typeof(left.handle) != "null") then
 				leftType = typeof(left.handle)
 
 				if (leftType == "proxyScope") then
-					me.cpsWalker.debug({
+					opc.debugger.debug({
 						"type": "AssignExpression", 
 						"description": "assign with operationContext",
 						"leftType": leftType,
@@ -176,7 +175,7 @@ interpreterModule = function(deps)
 					return true
 				end if
 
-				me.cpsWalker.debug({
+				opc.debugger.debug({
 					"type": "AssignExpression", 
 					"description": "assign with handle",
 					"leftType": leftType,
@@ -191,11 +190,11 @@ interpreterModule = function(deps)
 
 					return true
 				else
-					me.cpsWalker.raise(["Unexpected left assignment", me, left].join(" "))
+					opc.debugger.raise(["Unexpected left assignment", me, left].join(" "))
 				end if
 			end if
 
-			me.cpsWalker.debug({
+			opc.debugger.debug({
 				"type": "AssignExpression", 
 				"description": "assign with scope",
 				"path": left.path
@@ -213,7 +212,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "AssignExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -304,7 +303,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "BinaryNegatedExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -374,7 +373,7 @@ interpreterModule = function(deps)
 			result = []
 
 			for item in args
-				me.cpsWalker.debug({
+				opc.debugger.debug({
 					"type": "CallExpression", 
 					"description": "resolve arg",
 					"item": @item
@@ -399,7 +398,7 @@ interpreterModule = function(deps)
 			end if
 
 			args = self.resolveArgs(node.args)
-			me.cpsWalker.debug({
+			opc.debugger.debug({
 				"type": "CallExpression", 
 				"description": "resolved args",
 				"args": args
@@ -411,13 +410,13 @@ interpreterModule = function(deps)
 					opc.setMemory("args", args)
 					return callResult.run(opc)
 				else
-					me.cpsWalker.raise(["CallExpression", "Unexpected handle result", me, callResult].join(" "))
+					opc.debugger.raise(["CallExpression", "Unexpected handle result", me, callResult].join(" "))
 				end if
 			end if
 
 			pathExpr = node.path.get(opc, me.expr)
 
-			me.cpsWalker.debug({
+			opc.debugger.debug({
 				"type": "CallExpression", 
 				"description": "get path expr result",
 				"pathExpr": pathExpr
@@ -429,7 +428,7 @@ interpreterModule = function(deps)
 			if (handleType != "null") then
 				callable = me.dynResolve.getCallable(@pathExpr.handle, pathExpr.path)
 
-				me.cpsWalker.debug({
+				opc.debugger.debug({
 					"type": "CallExpression", 
 					"description": "handle callable",
 					"callable": callable
@@ -442,7 +441,7 @@ interpreterModule = function(deps)
 					return me.dynApply.apply(@callable.origin, args, callable.context)
 				end if
 
-				me.cpsWalker.raise({
+				opc.debugger.raise({
 					"type": "CallExpression", 
 					"description": "Unexpected handle call",
 					"callable": callable
@@ -451,7 +450,7 @@ interpreterModule = function(deps)
 
 			callable = opc.getCallable(pathExpr.path)
 
-			me.cpsWalker.debug({
+			opc.debugger.debug({
 				"type": "CallExpression", 
 				"description": "operationContext",
 				"callable": callable
@@ -477,7 +476,7 @@ interpreterModule = function(deps)
 			"forkedOpc": operationContext.fork("CALL", "TEMPORARY")
 		}
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "CallExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -564,7 +563,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "ListExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -692,7 +691,7 @@ interpreterModule = function(deps)
 			right = null
 			type = typeof(node)
 
-			me.cpsWalker.debug({
+			operationContext.debugger.debug({
 				"type": "LogicalAndBinaryExpression", 
 				"description": "type",
 				"val": type
@@ -734,7 +733,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "LogicalAndBinaryExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -811,7 +810,7 @@ interpreterModule = function(deps)
 				if (typeof(current.key) == "string") then
 					key = current.key
 				else
-					me.cpsWalker.raise(["Unexpected key", me, current.key].join(" "))
+					operationContext.debugger.raise(["Unexpected key", me, current.key].join(" "))
 				end if
 
 				if (typeof(current.value) == "mapexpr") then
@@ -835,7 +834,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "MapExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -941,7 +940,7 @@ interpreterModule = function(deps)
 				else if (me.OperationManager.isInstanceOf(current)) then
 					handle = current.get(opc)
 				else if (currentType == "path") then
-					me.cpsWalker.debug({
+					opc.debugger.debug({
 						"type": "PathExpression", 
 						"description": "current path",
 						"path": current.value
@@ -954,7 +953,7 @@ interpreterModule = function(deps)
 						if (typeof(context) != "null") then
 							handle = functionContext.context
 						else
-							me.cpsWalker.raise(["Unexpected self", me, current].join(" "))
+							opc.debugger.raise(["Unexpected self", me, current].join(" "))
 						end if
 					else
 						traversedPath.push(current.value)
@@ -971,7 +970,7 @@ interpreterModule = function(deps)
 
 							originType = typeof(@origin)
 
-							me.cpsWalker.debug({
+							opc.debugger.debug({
 								"type": "PathExpression", 
 								"description": "traversed",
 								"origin": @origin,
@@ -987,7 +986,7 @@ interpreterModule = function(deps)
 								callable = me.dynResolve.getCallable(@origin, traversedPath)
 								originType = typeof(@callable.origin)
 
-								me.cpsWalker.debug({
+								opc.debugger.debug({
 									"type": "PathExpression", 
 									"description": "traversed",
 									"callable": callable
@@ -1022,7 +1021,7 @@ interpreterModule = function(deps)
 						handle = opc.get(traversedPath)
 						traversedPath = []
 					else if (typeof(handle) != "list") then
-						me.cpsWalker.raise("Invalid type for slice", me, handle)
+						opc.debugger.raise("Invalid type for slice", me, handle)
 					end if
 
 					left = current.left[0]
@@ -1058,7 +1057,7 @@ interpreterModule = function(deps)
 			"opc": opc
 		}
 
-		me.cpsWalker.debug({
+		opc.debugger.debug({
 			"type": "PathExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -1067,7 +1066,7 @@ interpreterModule = function(deps)
 
 		resultExpr = evaluateIterator.eval(me.expr)
 
-		me.cpsWalker.debug({
+		opc.debugger.debug({
 			"type": "PathExpression", 
 			"description": "result",
 			"result": resultExpr,
@@ -1087,7 +1086,7 @@ interpreterModule = function(deps)
 
 				callable = null
 
-				me.cpsWalker.debug({
+				opc.debugger.debug({
 					"type": "PathExpression", 
 					"description": "get callable",
 					"callable": handleType
@@ -1100,7 +1099,7 @@ interpreterModule = function(deps)
 					callable = me.dynResolve.getCallable(resultExpr.handle, resultExpr.path)
 				end if
 
-				me.cpsWalker.debug({
+				opc.debugger.debug({
 					"type": "PathExpression", 
 					"description": "is path with handle callable",
 					"callable": callable
@@ -1117,7 +1116,7 @@ interpreterModule = function(deps)
 
 			value = opc.get(resultExpr.path)
 
-			me.cpsWalker.debug({
+			opc.debugger.debug({
 				"type": "PathExpression", 
 				"description": "get with opc",
 				"value": @value,
@@ -1216,6 +1215,10 @@ interpreterModule = function(deps)
 		end if
 
 		for entity in me.stack
+			if (operationContext.debugger.getBreakPoint()) then
+				operationContext.debugger.interact(operationContext, entity.ast.line)
+			end if
+
 			if (me.ExpressionManager.isInstanceOf(entity)) then
 				entity.get(operationContext)
 			else
@@ -1279,8 +1282,9 @@ interpreterModule = function(deps)
 	end function
 
 	DebuggerOperation.run = function(operationContext)
-		debuggerFn = operationContext.get("__debugger")
-		debuggerFn(operationContext)
+		me = self
+		operationContext.debugger.setBreakPoint(true)
+		operationContext.debugger.interact(operationContext, me.ast.line)
 	end function
 
 	ElseIfOperation = {}
@@ -1457,7 +1461,7 @@ interpreterModule = function(deps)
 				clause.body.run(operationContext)
 				return
 			else
-				me.cpsWalker.raise(["Invalid operation in if statement.", me, clause].join(" "))
+				operationContext.debugger.raise(["Invalid operation in if statement.", me, clause].join(" "))
 			end if
 		end for
 	end function
@@ -1497,7 +1501,7 @@ interpreterModule = function(deps)
 		me = self
 		arg = me.arg
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "NewOperation", 
 			"description": "start",
 			"arg": @arg
@@ -1508,12 +1512,12 @@ interpreterModule = function(deps)
 		end if
 
 		if (typeof(arg) != "map") then
-			me.cpsWalker.raise(["Unexpected type for new operator", me, arg].join(" "))
+			operationContext.debugger.raise(["Unexpected type for new operator", me, arg].join(" "))
 		end if
 
 		newInstance = {}
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "NewOperation", 
 			"description": "start creation",
 			"arg": @arg
@@ -1582,10 +1586,10 @@ interpreterModule = function(deps)
 		if (me.ExpressionManager.isInstanceOf(@arg)) then
 			arg = arg.get(operationContext, me)
 		else
-			me.cpsWalker.raise(["Unexpected reference", me].join(" "))
+			operationContext.debugger.raise(["Unexpected reference", me].join(" "))
 		end if
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "ReferenceOperation", 
 			"description": "handle",
 			"arg": @arg
@@ -1594,7 +1598,7 @@ interpreterModule = function(deps)
 		handle = me.dynResolve.get(@arg, "handle")
 		handleType = typeof(@handle)
 
-		me.cpsWalker.debug({
+		operationContext.debugger.debug({
 			"type": "ReferenceOperation", 
 			"description": "handle type after resolve",
 			"handleType": handleType
@@ -1611,7 +1615,7 @@ interpreterModule = function(deps)
 				return @resolvedValue
 			end if
 
-			me.cpsWalker.raise({
+			operationContext.debugger.raise({
 				"type": "ReferenceOperation", 
 				"description": "Unexpected handle in reference statement",
 				"handle": handle
@@ -1663,13 +1667,18 @@ interpreterModule = function(deps)
 		return me
 	end function
 
-	TopOperation.run = function(operationContext)
+	TopOperation.run = function(operationContext, disablePollution)
 		me = self
-		opc = operationContext.fork("GLOBAL", "DEFAULT")
-		opc.extend({
-			"globals": opc.createProxy()
-		})
+
+		if (not disablePollution) then
+			opc = operationContext.fork("GLOBAL", "DEFAULT")
+			opc.extend({
+				"globals": opc.createProxy()
+			})
+		end if
+
 		me.body.run(opc)
+
 		return opc
 	end function
 
@@ -1804,10 +1813,6 @@ interpreterModule = function(deps)
 	AstMapping.IndexExpression = function(cpsWalker, item)
 		PathExpression = cpsWalker.ExpressionManager.get("PathExpression")
 		return (new PathExpression).constructor(item, cpsWalker)
-	end function
-
-	AstMapping.FeatureEnvarExpression = function(cpsWalker, item)
-		exit("Not supported")
 	end function
 
 	AstMapping.IfShortcutStatement = function(cpsWalker, item)
@@ -1972,14 +1977,6 @@ interpreterModule = function(deps)
 		return (new CallExpression).constructor(item, cpsWalker)
 	end function
 
-	AstMapping.FeatureImportExpression = function(cpsWalker, item)
-		exit("Not supported")
-	end function
-
-	AstMapping.FeatureIncludeExpression = function(cpsWalker, item)
-		exit("Not supported")
-	end function
-
 	AstMapping.ImportCodeExpression = function(cpsWalker, item)
 		exit("Not supported")
 	end function
@@ -2049,12 +2046,10 @@ interpreterModule = function(deps)
 	CPSEvaluatorWalker.OperationManager = OperationManager
 	CPSEvaluatorWalker.ExpressionManager = ExpressionManager
 
-	CPSEvaluatorWalker.constructor = function(debug, raise)
+	CPSEvaluatorWalker.constructor = function()
 		me = self
 
 		me.mapper = me.defaultMapper
-		me.debug = @debug
-		me.raise = @raise
 		me.status = {"errors":[]}
 
 		return me
@@ -2099,20 +2094,10 @@ interpreterModule = function(deps)
 
 	CPSEvaluator.TopOperation = TopOperation
 	CPSEvaluator.CPSEvaluatorWalker = CPSEvaluatorWalker
-	CPSEvaluator.constructor = function(chunk, debug, raise)
+	CPSEvaluator.constructor = function(chunk)
 		me = self
 
 		me.chunk = chunk
-		me.debug = @debug
-		me.raise = @raise
-
-		if (@me.debug == null) then
-			me.debug = @me.defaultDebug
-		end if
-
-		if (@me.raise == null) then
-			me.raise = @me.defaultRaise
-		end if
 
 		return me
 	end function
@@ -2127,7 +2112,7 @@ interpreterModule = function(deps)
 
 	CPSEvaluator.digest = function()
 		me = self
-		cpsWalker = (new me.CPSEvaluatorWalker).constructor(@me.debug, @me.raise)
+		cpsWalker = (new me.CPSEvaluatorWalker).constructor()
 		topOperation = (new me.TopOperation).constructor()
 
 		topOperation.body = cpsWalker.visit(me.chunk)
@@ -2296,7 +2281,7 @@ interpreterModule = function(deps)
 	
 	OperationContext.Base = OperationContext
 	OperationContext.Scope = Scope
-	OperationContext.constructor = function(isProteced = false)
+	OperationContext.constructor = function(debugger, isProteced = false)
 		me = self
 		me.classID = "operationContext"
 		me.previous = null
@@ -2304,6 +2289,7 @@ interpreterModule = function(deps)
 		me.state = me.STATE.DEFAULT
 		me.scope = (new me.Scope).constructor(me)
 		me.isProteced = isProteced
+		me.debugger = debugger
 		me.memory = {}
 		return me
 	end function
@@ -2368,7 +2354,7 @@ interpreterModule = function(deps)
 
 	OperationContext.fork = function(type, state)
 		me = self
-		opc = (new me.Base).constructor()
+		opc = (new me.Base).constructor(me.debugger)
 
 		opc.previous = me
 		opc.type = type
@@ -2391,24 +2377,180 @@ interpreterModule = function(deps)
 		return opc
 	end function
 
+	Debugger = {}
+
+	Debugger.CodeParser = CodeParser
+	Debugger.CPSEvaluatorWalker = CPSEvaluatorWalker
+	Debugger.TopOperation = TopOperation
+	Debugger.Base = Debugger
+	Debugger.constructor = function(raise, debug)
+		me = self
+
+		me.customRaise = raise
+		me.customDebug = debug
+		me.breakpoint = false
+		me.maxLevel = 3
+
+		return me
+	end function
+
+	Debugger.raise = function(errorObject)
+		me = self
+
+		if (@me.customRaise != null) then
+			me.customRaise(errorObject)
+			return null
+		end if
+
+		debug("[ERROR] " + errorObject)
+		return null
+	end function
+
+	Debugger.debug = function(errorObject)
+		me = self
+
+		if (@me.customDebug != null) then
+			me.customDebug(errorObject)
+			return null
+		end if
+
+		debug("[DEBUG] " + errorObject)
+		return null
+	end function
+
+	Debugger.setBreakPoint = function(breakpointState)
+		me = self
+		me.breakpoint = breakpointState
+		return me
+	end function
+
+	Debugger.getBreakPoint = function()
+		me = self
+		return me.breakpoint
+	end function
+
+	Debugger.inspectIterator = function(key, value, level)
+		me = self
+		valueType = typeof(@value)
+		nextLevel = level + 1
+		indent = char(9) * (level + 1)
+
+		if (level == me.maxLevel) then
+			print("[REDACTED]")
+			return null
+		end if
+
+		if (valueType == "string" or valueType == "boolean" or valueType == "number" or valueType == "function") then
+			print(indent + "[" + valueType + "] <b>" + key + "</b>: " + @value)
+		else if (valueType == "null") then
+			print(indent + "[" + valueType + "] <b>" + key + "</b>: null")
+		else if (valueType == "list") then
+			print(indent + "[" + valueType + "] <b>" + key + "</b>:")
+
+			index = 0
+			for item in value
+				me.inspectIterator(index, @item, nextLevel)
+				index = index + 1
+			end for
+		else if (valueType == "map") then
+			print(indent + "[" + valueType + "] <b>" + key + "</b>:")
+
+			for item in value
+				me.inspectIterator(item.key, @item.value, nextLevel)
+			end for
+		else
+			print(indent + "[" + valueType + "] <b>" + key + "</b>: " + @value)
+		end if
+
+		return null
+	end function
+
+	Debugger.inspect = function(obj)
+		me = self
+		index = 0
+
+		for item in obj
+			me.inspectIterator(item.key, @item.value, 0)
+			index = index + 1
+		end for
+
+		if (index == 0) then
+			print("{}")
+		end if
+
+		return null
+	end function
+
+	Debugger.inspectOperationContext = function(operationContext)
+		me = self
+
+		ctx = operationContext
+
+		while ctx
+			print("<b>" + ctx.type + "</b>:")
+			me.inspect(ctx.scope.refs)
+			ctx = ctx.previous
+		end while
+
+		return null
+	end function
+
+	Debugger.showInteractOptions = function()
+		print("<b>Interactive debugger mode</b>" + char(10) + char(10) + "<b>Actions</b>:")
+		print(char(9) + "<b>:q</b> exit")
+		print(char(9) + "<b>:i</b> show context info")
+		print(char(9) + "<b>:n</b> next line")
+		return null
+	end function
+
+	Debugger.interact = function(operationContext, line)
+		me = self
+		ctx = operationContext
+
+		while me.breakpoint
+			me.showInteractOptions()
+			stdin = user_input("[Line: " + line + "]: ")
+			stdin = stdin.trim()
+
+			if (stdin == ":n") then
+				return null
+			else if (stdin == ":q") then
+				me.setBreakPoint(false)
+			else if (stdin == ":i") then
+				me.inspectOperationContext(operationContext)
+			else
+				parser = (new me.CodeParser).constructor(stdin)
+				chunk = parser.parseChunk()
+
+				if (parser.hasError()) then
+					print(parser.getErrors().join(char(10)))
+				else
+					cpsWalker = (new me.CPSEvaluatorWalker).constructor()
+					topOperation = (new me.TopOperation).constructor()
+					opc = operationContext.fork("CALL", "TEMPORARY")
+					opc.debugger = (new me.Base).constructor()
+
+					topOperation.body = cpsWalker.visit(chunk)
+					topOperation.run(opc, true)
+				end if
+			end if
+		end while
+	end function
+
 	Interpreter = {}
 
 	Interpreter.CodeParser = CodeParser
-	Interpreter.EventEmitter = EventEmitter
 	Interpreter.CPSEvaluator = CPSEvaluator
 	Interpreter.OperationContext = OperationContext
-	Interpreter.constructor = function(code, api, params, eventEmitter)
+	Interpreter.Debugger = Debugger
+	Interpreter.constructor = function(code, api, params, raise, debug)
 		me = self
 
 		me.code = code
 		me.api = api
 		me.params = params
-		me.emitter = eventEmitter
+		me.debugger = (new me.Debugger).constructor(@raise, @debug)
 		me.status = {"errors":[]}
-
-		if (me.emitter == null) then
-			me.emitter = (new me.EventEmitter).constructor()
-		end if
 
 		return me
 	end function
@@ -2419,14 +2561,6 @@ interpreterModule = function(deps)
 
 	Interpreter.getErrors = function()
 		return self.status.errors
-	end function
-
-	Interpreter.raise = function(errorObject)
-		debug("[ERROR] " + errorObject)
-	end function
-
-	Interpreter.debug = function(errorObject)
-		debug("[DEBUG] " + errorObject)
 	end function
 
 	Interpreter.digest = function()
@@ -2440,8 +2574,8 @@ interpreterModule = function(deps)
 			return null
 		end if
 
-		cps = (new me.CPSEvaluator).constructor(chunk, @me.debug, @me.raise).digest()
-		mainContext = (new me.OperationContext).constructor(true)
+		cps = (new me.CPSEvaluator).constructor(chunk).digest()
+		mainContext = (new me.OperationContext).constructor(me.debugger, true)
 
 		me.api.params = me.params
 		
@@ -2453,4 +2587,4 @@ interpreterModule = function(deps)
 	return Interpreter
 end function
 
-injector.def("interpreter", ["dynResolve", "parser", "eventEmitter", "dynApply"], @interpreterModule)
+injector.def("interpreter", ["dynResolve", "parser", "dynApply"], @interpreterModule)

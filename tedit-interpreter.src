@@ -13,7 +13,11 @@ teditInterpreterModule = function(deps)
 		me = self
 
 		api = {}
-		api.print = @print
+		api.print = function(str)
+			print(str)
+			//if print doesnt return null it may return the printed string as a value
+			return null
+		end function
 		api.wait = @wait
 		api.time = @time
 		api.typeof = @typeof

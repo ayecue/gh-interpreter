@@ -16,9 +16,10 @@ injectorModule = function()
 
 	DependencyInjector.set = function(namespace, module, override)
 		me = self
+		namespaceType = typeof(namespace)
 		
-		if (typeof(namespace) != "string") then
-			return "[Error] Unexpected type for namespace. Namespace needs to be a string."
+		if (namespaceType != "string") then
+			return "[Error] While setting a namespace there was an unexpected type for namespace. Namespace needs to be a string. Type used was " + namespaceType
 		else if (me.scope.hasIndex(namespace) and not override) then
 			return "[Error] " + namespace + " is aready defined."
 		end if
@@ -30,9 +31,10 @@ injectorModule = function()
 
 	DependencyInjector.get = function(namespace)
 		me = self
+		namespaceType = typeof(namespace)
 		
-		if (typeof(namespace) != "string") then
-			return "[Error] Unexpected type for namespace. Namespace needs to be a string."
+		if (namespaceType != "string") then
+			return "[Error] While getting a namespace there was an unexpected type for namespace. Namespace needs to be a string. Type used was " + namespaceType
 		else if (not me.scope.hasIndex(namespace)) then
 			return "[Error] " + namespace + " not found.."
 		end if

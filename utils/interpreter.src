@@ -434,8 +434,9 @@ interpreterModule = function(deps)
 					"callable": callable
 				})
 
+				opc.setMemory("args", args)
+
 				if (me.OperationManager.isInstanceOf(@callable.origin)) then
-					opc.setMemory("args", args)
 					return callable.origin.run(opc)
 				else if (typeof(@callable.origin) == "function") then
 					return me.dynApply.apply(@callable.origin, args, callable.context)
@@ -444,6 +445,7 @@ interpreterModule = function(deps)
 				opc.debugger.raise({
 					"type": "CallExpression", 
 					"description": "Unexpected handle call",
+					"pathExpr": pathExpr,
 					"callable": callable
 				})
 			end if
@@ -1046,6 +1048,7 @@ interpreterModule = function(deps)
 			end while
 
 			return {
+				"classID": "pathResult",
 				"handle": handle,
 				"path": traversedPath
 			}
@@ -1159,6 +1162,11 @@ interpreterModule = function(deps)
 		me.isOperation = true
 		me.cpsWalker = cpsWalker
 		return me
+	end function
+
+	ArgumentOperation.run = function(operationContext)
+		me = self
+		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
 	end function
 
 	ArgumentOperation.get = function(operationContext)
@@ -1299,6 +1307,11 @@ interpreterModule = function(deps)
 		me.isOperation = true
 		me.cpsWalker = cpsWalker
 		return me
+	end function
+
+	ElseIfOperation.run = function(operationContext)
+		me = self
+		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
 	end function
 
 	ElseOperation = {}
@@ -1480,6 +1493,11 @@ interpreterModule = function(deps)
 		return me
 	end function
 
+	IfOperation.run = function(operationContext)
+		me = self
+		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
+	end function
+
 	NewOperation = {}
 	OperationManager.add("NewOperation", NewOperation)
 
@@ -1497,6 +1515,11 @@ interpreterModule = function(deps)
 		return me
 	end function
 
+	NewOperation.run = function(operationContext)
+		me = self
+		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
+	end function
+
 	NewOperation.get = function(operationContext)
 		me = self
 		arg = me.arg
@@ -1511,7 +1534,9 @@ interpreterModule = function(deps)
 			arg = arg.get(operationContext)
 		end if
 
-		if (typeof(arg) != "map") then
+		argType = typeof(@arg)
+
+		if (argType == "string" or argType == "number" or argType == "boolean" or argType == "list") then
 			operationContext.debugger.raise(["Unexpected type for new operator", me, arg].join(" "))
 		end if
 
@@ -1523,7 +1548,7 @@ interpreterModule = function(deps)
 			"arg": @arg
 		})
 
-		for item in arg
+		for item in @arg
 			if (typeof(item.value) == "FunctionOperation") then
 				newInstance[item.key] = item.value.fork(newInstance)
 			else
@@ -1549,6 +1574,11 @@ interpreterModule = function(deps)
 		me.isOperation = true
 		me.cpsWalker = cpsWalker
 		return me
+	end function
+
+	NotOperation.run = function(operationContext)
+		me = self
+		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
 	end function
 
 	NotOperation.get = function(operationContext)
@@ -1579,6 +1609,21 @@ interpreterModule = function(deps)
 		return me
 	end function
 
+	ReferenceOperation.run = function(operationContext)
+		me = self
+		arg = @me.arg
+		resolvedValue = null
+
+		if (me.ExpressionManager.isInstanceOf(@arg)) then
+			resolvedValue = arg.get(operationContext)
+		else
+			operationContext.debugger.raise(["Unexpected reference", me.arg].join(" "))
+			return null
+		end if
+
+		return @resolvedValue
+	end function
+
 	ReferenceOperation.get = function(operationContext)
 		me = self
 		arg = @me.arg
@@ -1586,7 +1631,13 @@ interpreterModule = function(deps)
 		if (me.ExpressionManager.isInstanceOf(@arg)) then
 			arg = arg.get(operationContext, me)
 		else
-			operationContext.debugger.raise(["Unexpected reference", me].join(" "))
+			operationContext.debugger.raise(["Unexpected reference", me.arg].join(" "))
+			return null
+		end if
+
+		if (typeof(@arg) != "pathResult") then
+			operationContext.debugger.raise(["Unexpected reference result", @arg].join(" "))
+			return @arg
 		end if
 
 		operationContext.debugger.debug({
@@ -1595,7 +1646,7 @@ interpreterModule = function(deps)
 			"arg": @arg
 		})
 
-		handle = me.dynResolve.get(@arg, "handle")
+		handle = arg.handle
 		handleType = typeof(@handle)
 
 		operationContext.debugger.debug({
@@ -1622,12 +1673,20 @@ interpreterModule = function(deps)
 			})
 		end if
 
-		operationContext.debugger.raise({
+		resolvedValue = operationContext.get(arg.path)
+
+		opc.debugger.debug({
 			"type": "ReferenceOperation", 
-			"description": "Referencing to null"
+			"description": "get with opc",
+			"value": @resolvedValue,
+			"opc": operationContext
 		})
 
-		return null
+		if (typeof(@resolvedValue) == "FunctionOperation") then
+			return resolvedValue.createProxy()
+		end if
+
+		return @resolvedValue
 	end function
 
 	ReturnOperation = {}
@@ -2292,7 +2351,7 @@ interpreterModule = function(deps)
 						return me.dynResolve.get(@origin, traversalPath)
 					end if
 				end if
-			else if (me.dynResolve.get(me, "context.previous")) then
+			else if (me.context.previous != null) then
 				return me.context.previous.get(path)
 			else
 				origin = null
@@ -2476,7 +2535,7 @@ interpreterModule = function(deps)
 			return null
 		end if
 
-		debug("[ERROR] " + errorObject)
+		print("[ERROR] " + errorObject)
 		return null
 	end function
 
@@ -2651,6 +2710,15 @@ interpreterModule = function(deps)
 		cps = (new me.CPSEvaluator).constructor(chunk).digest()
 		mainContext = (new me.OperationContext).constructor(me.debugger, true)
 
+		me.api.typeof = function(v)
+			nativeType = typeof(@v)
+
+			if (nativeType == "FunctionOperation" or nativeType == "proxyFunction") then
+				return "function"
+			end if
+
+			return nativeType
+		end function
 		me.api.params = me.params
 		
 		mainContext.extend(me.api)

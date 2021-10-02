@@ -1,6 +1,6 @@
 dynResolveModule = function()
 	dynResolve = {}
-	dynResolve.hasIndex = @({})["hasIndex"]
+	dynResolve.nativeHasIndex = @({})["hasIndex"]
 
 	dynResolve.MODES = {"STRICT": 0,"WARN": 1,"IGNORE": 2}
 
@@ -124,7 +124,7 @@ dynResolveModule = function()
 
 		me = self
 		origin = @v
-		hasIndex = @me.hasIndex
+		hasIndex = @me.nativeHasIndex
 		traversed = [] + path
 
 		while @v != null

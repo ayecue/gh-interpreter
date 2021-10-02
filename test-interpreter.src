@@ -100,7 +100,7 @@ startTime = time
 
 print("Executing " + char(10) + code)
 
-interpreter = (new Interpreter).constructor(code, api, params)
+interpreter = (new Interpreter).constructor(code, api, user_input("Params:").split(" "))
 
 globalContext = interpreter.digest()
 

@@ -2615,7 +2615,7 @@ interpreterModule = function(deps)
 				me.inspectIterator(index, @item, nextLevel)
 				index = index + 1
 			end for
-		else if (valueType == "map" or valueType == "module") then
+		else if (valueType == "map") then
 			print(indent + "[" + valueType + "] <b>" + key + "</b>:")
 
 			for item in value

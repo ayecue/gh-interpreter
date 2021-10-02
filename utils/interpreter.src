@@ -320,6 +320,7 @@ interpreterModule = function(deps)
 	CallExpression.dynApply = dynApply
 	CallExpression.ExpressionManager = ExpressionManager
 	CallExpression.OperationManager = OperationManager
+	CallExpression.FunctionRegistry = FunctionRegistry
 
 	CallExpression.constructor = function(ast, cpsWalker)
 		me = self
@@ -406,6 +407,11 @@ interpreterModule = function(deps)
 
 			if (typeof(node.path) == "call") then
 				callResult = self.eval(node.path)
+
+				if (typeof(callResult) == "proxyFunction") then
+					callResult = me.FunctionRegistry.get(callResult.id)
+				end if
+
 				if (me.OperationManager.isInstanceOf(callResult)) then
 					opc.setMemory("args", args)
 					return callResult.run(opc)
@@ -436,6 +442,10 @@ interpreterModule = function(deps)
 
 				opc.setMemory("args", args)
 
+				if (typeof(@callable.origin) == "proxyFunction") then
+					callable.origin = me.FunctionRegistry.get(callable.origin.id)
+				end if
+
 				if (me.OperationManager.isInstanceOf(@callable.origin)) then
 					return callable.origin.run(opc)
 				else if (typeof(@callable.origin) == "function") then
@@ -459,6 +469,10 @@ interpreterModule = function(deps)
 			})
 
 			opc.setMemory("args", args)
+
+			if (typeof(@callable.origin) == "proxyFunction") then
+				callable.origin = me.FunctionRegistry.get(callable.origin.id)
+			end if
 
 			if (me.OperationManager.isInstanceOf(@callable.origin)) then
 				result = callable.origin.run(opc)
@@ -547,7 +561,7 @@ interpreterModule = function(deps)
 			while (typeof(current) != "null")
 				if (typeof(current) == "listexpr") then
 					list.push(me.eval(current.values))
-				else if (me.ExpressionManager.isInstanceOf(current)) then
+				else if (me.ExpressionManager.isInstanceOf(current) or me.OperationManager.isInstanceOf(current)) then
 					list.push(current.get(operationContext))
 				else
 					list.push(current)
@@ -817,7 +831,7 @@ interpreterModule = function(deps)
 
 				if (typeof(current.value) == "mapexpr") then
 					value = self.eval(current.value.values)
-				else if (me.ExpressionManager.isInstanceOf(current.value)) then
+				else if (me.ExpressionManager.isInstanceOf(current.value) or me.OperationManager.isInstanceOf(current.value)) then
 					value = current.value.get(operationContext)
 				else
 					value = current.value
@@ -1684,7 +1698,7 @@ interpreterModule = function(deps)
 				"handle": handle
 			})
 
-			return null
+			return handle
 		end if
 
 		resolvedValue = operationContext.get(arg.path)

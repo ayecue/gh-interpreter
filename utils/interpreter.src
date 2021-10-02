@@ -1682,6 +1682,74 @@ interpreterModule = function(deps)
 		return opc
 	end function
 
+	ImportCodeExpression = {}
+	ExpressionManager.add("ImportCodeExpression", ImportCodeExpression)
+
+	ImportCodeExpression.CodeParser = CodeParser
+	ImportCodeExpression.TopOperation = TopOperation
+	ImportCodeExpression.constructor = function(ast, cpsWalker)
+		me = self
+
+		build = function(node)
+			me = self
+			filepath = node.filepath.value
+			file = get_shell.host_computer.File(filepath)
+
+			if (not file) then
+				me.cpsWalker.exception("File " + filepath + " cannot be found.")
+				return null
+			else if (not file.has_permission("r")) then
+				me.cpsWalker.exception("Has no permission to read " + filepath + ".")
+				return null
+			else if (file.is_binary) then
+				me.cpsWalker.exception("File " + filepath + " is a binary.")
+				return null
+			else if (file.is_folder) then
+				me.cpsWalker.exception("File " + filepath + " is a folder.")
+				return null
+			end if
+
+			parser = (new me.CodeParser).constructor(file.get_content)
+			chunk = parser.parseChunk()
+
+			if (parser.hasError()) then
+				me.cpsWalker.exception(parser.getErrors().join(char(10)))
+				return null
+			end if
+
+			topOperation = (new me.TopOperation).constructor()
+			topOperation.body = me.cpsWalker.visit(chunk)
+
+			return topOperation
+		end function
+
+		buildIterator = {
+			"cpsWalker": cpsWalker,
+			"build": @build,
+			"CodeParser": me.CodeParser,
+			"TopOperation": me.TopOperation
+		}
+
+		me.classID = "ImportCodeExpression"
+		me.body = null
+		me.isExpression = true
+		me.ast = ast
+		me.cpsWalker = cpsWalker
+		me.expr = buildIterator.build(ast)
+		return me
+	end function
+
+	ImportCodeExpression.get = function(operationContext, parentExpr)
+		me = self
+
+		if (me.expr == null) then
+			operationContext.debugger.raise("Import " + me.ast.filepath.value + " is not available.")
+			return null
+		end if
+
+		return me.expr.run(operationContext, true)
+	end function
+
 	WhileOperation = {}
 	OperationManager.add("WhileOperation", WhileOperation)
 
@@ -1978,7 +2046,8 @@ interpreterModule = function(deps)
 	end function
 
 	AstMapping.ImportCodeExpression = function(cpsWalker, item)
-		exit("Not supported")
+		ImportCodeExpression = cpsWalker.ExpressionManager.get("ImportCodeExpression")
+		return (new ImportCodeExpression).constructor(item, cpsWalker)
 	end function
 
 	AstMapping.FeatureDebuggerExpression = function(cpsWalker, item)

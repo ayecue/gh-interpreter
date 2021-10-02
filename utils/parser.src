@@ -104,8 +104,11 @@ parserModule = function(deps)
 		return {"type": "NegationExpression","argument": arg,"line": line};
 	end function
 	AST.featureDebuggerExpression = function(line)
-        return {"type": "FeatureDebuggerExpression","line": line}
-    end function
+		return {"type": "FeatureDebuggerExpression","line": line}
+	end function
+	AST.importCodeExpression = function(filepath, line)
+		return {"type": "ImportCodeExpression","filepath": filepath,"line": line}
+	end function
 
 	Parser = {}
 	Parser.Lexer = Lexer
@@ -551,6 +554,26 @@ parserModule = function(deps)
 		return expression
 	end function
 
+	Parser.parseNativeImportCodeStatement = function()
+		me = self
+		mainStatementLine = me.token.line
+		filepath = null
+
+		me.expect("(")
+
+		if ("str" == me.token.type) then
+			filepath = me.parsePrimaryExpression()
+		else
+			me.exception("Unexpected non literal value in import_code")
+			return null
+		end if
+
+		me.expect(")")
+		me.expect(";")
+
+		return me.AST.importCodeExpression(filepath, mainStatementLine)
+	end function
+
 	Parser.parseWhileStatement = function(flowContext)
 		debug("parser.parseWhileStatement")
 		me = self
@@ -834,6 +857,9 @@ parserModule = function(deps)
 				base = me.AST.featureDebuggerExpression(me.token.line)
 				me.next()
 				return base
+			else if ("import_" + "code" == value) then
+				me.next()
+				return me.parseNativeImportCodeStatement()
 			end if
 		else if ("eol" == me.token.type or "cmt" == me.token.type or "nol" == me.token.type) then
 			me.next()

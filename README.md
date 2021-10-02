@@ -2,7 +2,7 @@
 
 Interpreter for Grey Hack.
 
-Supports all functionality of MS and GS. It does not support `import_code` yet though.
+Supports all functionality of MS and GS. <strike>It does not support `import_code` yet though.</strike> (supports import_code now, file needs to be readable though)
 
 Got a debugger as a feature as well.
 

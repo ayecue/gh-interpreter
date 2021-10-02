@@ -320,6 +320,7 @@ interpreterModule = function(deps)
 	CallExpression.dynApply = dynApply
 	CallExpression.ExpressionManager = ExpressionManager
 	CallExpression.OperationManager = OperationManager
+	CallExpression.FunctionRegistry = FunctionRegistry
 
 	CallExpression.constructor = function(ast, cpsWalker)
 		me = self
@@ -406,6 +407,11 @@ interpreterModule = function(deps)
 
 			if (typeof(node.path) == "call") then
 				callResult = self.eval(node.path)
+
+				if (typeof(callResult) == "proxyFunction") then
+					callResult = me.FunctionRegistry.get(callResult.id)
+				end if
+
 				if (me.OperationManager.isInstanceOf(callResult)) then
 					opc.setMemory("args", args)
 					return callResult.run(opc)
@@ -436,6 +442,10 @@ interpreterModule = function(deps)
 
 				opc.setMemory("args", args)
 
+				if (typeof(@callable.origin) == "proxyFunction") then
+					callable.origin = me.FunctionRegistry.get(callable.origin.id)
+				end if
+
 				if (me.OperationManager.isInstanceOf(@callable.origin)) then
 					return callable.origin.run(opc)
 				else if (typeof(@callable.origin) == "function") then
@@ -459,6 +469,10 @@ interpreterModule = function(deps)
 			})
 
 			opc.setMemory("args", args)
+
+			if (typeof(@callable.origin) == "proxyFunction") then
+				callable.origin = me.FunctionRegistry.get(callable.origin.id)
+			end if
 
 			if (me.OperationManager.isInstanceOf(@callable.origin)) then
 				result = callable.origin.run(opc)
@@ -547,7 +561,7 @@ interpreterModule = function(deps)
 			while (typeof(current) != "null")
 				if (typeof(current) == "listexpr") then
 					list.push(me.eval(current.values))
-				else if (me.ExpressionManager.isInstanceOf(current)) then
+				else if (me.ExpressionManager.isInstanceOf(current) or me.OperationManager.isInstanceOf(current)) then
 					list.push(current.get(operationContext))
 				else
 					list.push(current)
@@ -817,7 +831,7 @@ interpreterModule = function(deps)
 
 				if (typeof(current.value) == "mapexpr") then
 					value = self.eval(current.value.values)
-				else if (me.ExpressionManager.isInstanceOf(current.value)) then
+				else if (me.ExpressionManager.isInstanceOf(current.value) or me.OperationManager.isInstanceOf(current.value)) then
 					value = current.value.get(operationContext)
 				else
 					value = current.value
@@ -1107,6 +1121,10 @@ interpreterModule = function(deps)
 					"description": "is path with handle callable",
 					"callable": callable
 				})
+
+				if (typeof(@callable.origin) == "proxyFunction") then
+					callable.origin = me.FunctionRegistry.get(callable.origin.id)
+				end if
 
 				if (me.OperationManager.isInstanceOf(@callable.origin)) then
 					return callable.origin.run(opc)
@@ -1628,7 +1646,7 @@ interpreterModule = function(deps)
 		me = self
 		arg = @me.arg
 
-		if (me.ExpressionManager.isInstanceOf(@arg)) then
+		if (me.ExpressionManager.isInstanceOf(@arg) or me.OperationManager.isInstanceOf(@arg)) then
 			arg = arg.get(operationContext, me)
 		else
 			operationContext.debugger.raise(["Unexpected reference", me.arg].join(" "))
@@ -1659,8 +1677,16 @@ interpreterModule = function(deps)
 			if (handleType != "string" and handleType != "number" and handleType != "boolean") then
 				resolvedValue = me.dynResolve.get(@handle, arg.path)
 
+				operationContext.debugger.debug({
+					"type": "ReferenceOperation", 
+					"description": "returns resolved value of handle",
+					"resolvedValue": @resolvedValue
+				})
+
 				if (typeof(@resolvedValue) == "FunctionOperation") then
 					return resolvedValue.createProxy()
+				else if (me.ExpressionManager.isInstanceOf(@resolvedValue) or me.OperationManager.isInstanceOf(@resolvedValue)) then
+					return resolvedValue.get(operationContext)
 				end if
 
 				return @resolvedValue
@@ -1671,6 +1697,8 @@ interpreterModule = function(deps)
 				"description": "Unexpected handle in reference statement",
 				"handle": handle
 			})
+
+			return handle
 		end if
 
 		resolvedValue = operationContext.get(arg.path)
@@ -1684,6 +1712,8 @@ interpreterModule = function(deps)
 
 		if (typeof(@resolvedValue) == "FunctionOperation") then
 			return resolvedValue.createProxy()
+		else if (me.ExpressionManager.isInstanceOf(@resolvedValue) or me.OperationManager.isInstanceOf(@resolvedValue)) then
+			return resolvedValue.get(operationContext)
 		end if
 
 		return @resolvedValue
@@ -2522,7 +2552,7 @@ interpreterModule = function(deps)
 		me.customRaise = raise
 		me.customDebug = debug
 		me.breakpoint = false
-		me.maxLevel = 3
+		me.maxLevel = 4
 
 		return me
 	end function
@@ -2569,7 +2599,7 @@ interpreterModule = function(deps)
 		indent = char(9) * (level + 1)
 
 		if (level == me.maxLevel) then
-			print("[REDACTED]")
+			print(indent + "[REDACTED]")
 			return null
 		end if
 

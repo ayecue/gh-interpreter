@@ -788,12 +788,11 @@ parserModule = function(deps)
 			while (true)
 				if ("idtf" == me.token.type) then
 					parameter = me.parseIdentifier()
-					value = parameter.value
+					defaultValue = null
 					if (me.consume("=")) then
-						value = me.parseExpectedExpression(flowContext)
-						parameter = me.AST.assignmentStatement(parameter, value, mainStatementLine)
+						defaultValue = me.parseExpectedExpression(flowContext)
 					end if
-					parameters.push(parameter)
+					parameters.push({"path":parameter, "defaultValue": defaultValue})
 					if (me.consume(",")) then
 						continue
 					end if

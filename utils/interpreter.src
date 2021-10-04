@@ -2284,6 +2284,10 @@ interpreterModule = function(deps)
 		return null
 	end function
 
+	CPSEvaluatorWalker.hasError = function() 
+		return self.status.errors.len > 0
+	end function
+
 	CPSEvaluatorWalker.getErrors = function()
 		return self.status.errors
 	end function
@@ -2296,24 +2300,32 @@ interpreterModule = function(deps)
 		me = self
 
 		me.chunk = chunk
+		me.status = {"errors":[]}
 
 		return me
 	end function
 
-	CPSEvaluator.defaultDebug = function()
-		return
+	CPSEvaluator.hasError = function() 
+		return self.status.errors.len > 0
 	end function
 
-	CPSEvaluator.defaultRaise = function()
-		return
+	CPSEvaluator.getErrors = function()
+		return self.status.errors
 	end function
 
 	CPSEvaluator.digest = function()
 		me = self
 		cpsWalker = (new me.CPSEvaluatorWalker).constructor()
+		cpsBody = cpsWalker.visit(me.chunk)
+
+		if (cpsWalker.hasError()) then
+			me.status.errors = me.status.errors + cpsWalker.getErrors()
+			return null
+		end if
+
 		topOperation = (new me.TopOperation).constructor()
 
-		topOperation.body = cpsWalker.visit(me.chunk)
+		topOperation.body = cpsBody
 
 		return topOperation
 	end function
@@ -2772,7 +2784,14 @@ interpreterModule = function(deps)
 			return null
 		end if
 
-		cps = (new me.CPSEvaluator).constructor(chunk).digest()
+		cpsEvaluator = (new me.CPSEvaluator).constructor(chunk)
+		cps = cpsEvaluator.digest()
+
+		if (cpsEvaluator.hasError()) then
+			me.status.errors = me.status.errors + cpsEvaluator.getErrors()
+			return null
+		end if
+		
 		mainContext = (new me.OperationContext).constructor(me.debugger, true)
 
 		me.api.typeof = function(v)

@@ -130,7 +130,7 @@ interpreterModule = function(deps)
 			opc = self.opc
 
 			if (not me.ExpressionManager.isInstanceOf(node.left)) then
-				opc.debugger.raise(["Unexpected left assignment", me, left].join(" "))
+				opc.dbgr.raise(["Unexpected left assignment", me, left].join(" "))
 			end if
 
 			left = node.left.get(opc, me.expr)
@@ -155,14 +155,14 @@ interpreterModule = function(deps)
 					end if
 				end if
 			else if (@right == null) then
-				opc.debugger.raise(["Unexpected right assignment", me, @right].join(" "))
+				opc.dbgr.raise(["Unexpected right assignment", me, @right].join(" "))
 			end if
 
 			if (typeof(left.handle) != "null") then
 				leftType = typeof(left.handle)
 
 				if (leftType == "proxyScope") then
-					opc.debugger.debug({
+					opc.dbgr.debug({
 						"type": "AssignExpression", 
 						"description": "assign with operationContext",
 						"leftType": leftType,
@@ -175,7 +175,7 @@ interpreterModule = function(deps)
 					return true
 				end if
 
-				opc.debugger.debug({
+				opc.dbgr.debug({
 					"type": "AssignExpression", 
 					"description": "assign with handle",
 					"leftType": leftType,
@@ -190,11 +190,11 @@ interpreterModule = function(deps)
 
 					return true
 				else
-					opc.debugger.raise(["Unexpected left assignment", me, left].join(" "))
+					opc.dbgr.raise(["Unexpected left assignment", me, left].join(" "))
 				end if
 			end if
 
-			opc.debugger.debug({
+			opc.dbgr.debug({
 				"type": "AssignExpression", 
 				"description": "assign with scope",
 				"path": left.path
@@ -212,7 +212,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "AssignExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -303,7 +303,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "BinaryNegatedExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -374,7 +374,7 @@ interpreterModule = function(deps)
 			result = []
 
 			for item in args
-				opc.debugger.debug({
+				opc.dbgr.debug({
 					"type": "CallExpression", 
 					"description": "resolve arg",
 					"item": @item
@@ -399,7 +399,7 @@ interpreterModule = function(deps)
 			end if
 
 			args = self.resolveArgs(node.args)
-			opc.debugger.debug({
+			opc.dbgr.debug({
 				"type": "CallExpression", 
 				"description": "resolved args",
 				"args": args
@@ -416,13 +416,13 @@ interpreterModule = function(deps)
 					opc.setMemory("args", args)
 					return callResult.run(opc)
 				else
-					opc.debugger.raise(["CallExpression", "Unexpected handle result", me, callResult].join(" "))
+					opc.dbgr.raise(["CallExpression", "Unexpected handle result", me, callResult].join(" "))
 				end if
 			end if
 
 			pathExpr = node.path.get(opc, me.expr)
 
-			opc.debugger.debug({
+			opc.dbgr.debug({
 				"type": "CallExpression", 
 				"description": "get path expr result",
 				"pathExpr": pathExpr
@@ -434,7 +434,7 @@ interpreterModule = function(deps)
 			if (handleType != "null") then
 				callable = me.dynResolve.getCallable(@pathExpr.handle, pathExpr.path)
 
-				opc.debugger.debug({
+				opc.dbgr.debug({
 					"type": "CallExpression", 
 					"description": "handle callable",
 					"callable": callable
@@ -452,7 +452,7 @@ interpreterModule = function(deps)
 					return me.dynApply.apply(@callable.origin, args, callable.context)
 				end if
 
-				opc.debugger.raise({
+				opc.dbgr.raise({
 					"type": "CallExpression", 
 					"description": "Unexpected handle call",
 					"pathExpr": pathExpr,
@@ -462,7 +462,7 @@ interpreterModule = function(deps)
 
 			callable = opc.getCallable(pathExpr.path)
 
-			opc.debugger.debug({
+			opc.dbgr.debug({
 				"type": "CallExpression", 
 				"description": "operationContext",
 				"callable": callable
@@ -492,7 +492,7 @@ interpreterModule = function(deps)
 			"forkedOpc": operationContext.fork("CALL", "TEMPORARY")
 		}
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "CallExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -579,7 +579,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "ListExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -707,7 +707,7 @@ interpreterModule = function(deps)
 			right = null
 			type = typeof(node)
 
-			operationContext.debugger.debug({
+			operationContext.dbgr.debug({
 				"type": "LogicalAndBinaryExpression", 
 				"description": "type",
 				"val": type
@@ -749,7 +749,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "LogicalAndBinaryExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -826,7 +826,7 @@ interpreterModule = function(deps)
 				if (typeof(current.key) == "string") then
 					key = current.key
 				else
-					operationContext.debugger.raise(["Unexpected key", me, current.key].join(" "))
+					operationContext.dbgr.raise(["Unexpected key", me, current.key].join(" "))
 				end if
 
 				if (typeof(current.value) == "mapexpr") then
@@ -850,7 +850,7 @@ interpreterModule = function(deps)
 			"opc": operationContext
 		}
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "MapExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -956,7 +956,7 @@ interpreterModule = function(deps)
 				else if (me.OperationManager.isInstanceOf(current)) then
 					handle = current.get(opc)
 				else if (currentType == "path") then
-					opc.debugger.debug({
+					opc.dbgr.debug({
 						"type": "PathExpression", 
 						"description": "current path",
 						"path": current.value
@@ -969,7 +969,7 @@ interpreterModule = function(deps)
 						if (typeof(context) != "null") then
 							handle = functionContext.context
 						else
-							opc.debugger.raise(["Unexpected self", me, current].join(" "))
+							opc.dbgr.raise(["Unexpected self", me, current].join(" "))
 						end if
 					else
 						traversedPath.push(current.value)
@@ -986,7 +986,7 @@ interpreterModule = function(deps)
 
 							originType = typeof(@origin)
 
-							opc.debugger.debug({
+							opc.dbgr.debug({
 								"type": "PathExpression", 
 								"description": "traversed",
 								"origin": @origin,
@@ -1002,7 +1002,7 @@ interpreterModule = function(deps)
 								callable = me.dynResolve.getCallable(@origin, traversedPath)
 								originType = typeof(@callable.origin)
 
-								opc.debugger.debug({
+								opc.dbgr.debug({
 									"type": "PathExpression", 
 									"description": "traversed",
 									"callable": callable
@@ -1037,7 +1037,7 @@ interpreterModule = function(deps)
 						handle = opc.get(traversedPath)
 						traversedPath = []
 					else if (typeof(handle) != "list") then
-						opc.debugger.raise("Invalid type for slice", me, handle)
+						opc.dbgr.raise("Invalid type for slice", me, handle)
 					end if
 
 					left = current.left[0]
@@ -1074,7 +1074,7 @@ interpreterModule = function(deps)
 			"opc": opc
 		}
 
-		opc.debugger.debug({
+		opc.dbgr.debug({
 			"type": "PathExpression", 
 			"description": "get expr",
 			"line": me.ast.line,
@@ -1083,7 +1083,7 @@ interpreterModule = function(deps)
 
 		resultExpr = evaluateIterator.eval(me.expr)
 
-		opc.debugger.debug({
+		opc.dbgr.debug({
 			"type": "PathExpression", 
 			"description": "result",
 			"result": resultExpr,
@@ -1103,7 +1103,7 @@ interpreterModule = function(deps)
 
 				callable = null
 
-				opc.debugger.debug({
+				opc.dbgr.debug({
 					"type": "PathExpression", 
 					"description": "get callable",
 					"callable": handleType
@@ -1116,7 +1116,7 @@ interpreterModule = function(deps)
 					callable = me.dynResolve.getCallable(resultExpr.handle, resultExpr.path)
 				end if
 
-				opc.debugger.debug({
+				opc.dbgr.debug({
 					"type": "PathExpression", 
 					"description": "is path with handle callable",
 					"callable": callable
@@ -1137,7 +1137,7 @@ interpreterModule = function(deps)
 
 			value = opc.get(resultExpr.path)
 
-			opc.debugger.debug({
+			opc.dbgr.debug({
 				"type": "PathExpression", 
 				"description": "get with opc",
 				"value": @value,
@@ -1184,7 +1184,7 @@ interpreterModule = function(deps)
 
 	ArgumentOperation.run = function(operationContext)
 		me = self
-		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
+		operationContext.dbgr.raise("Unexpected run call on " + typeof(me))
 	end function
 
 	ArgumentOperation.get = function(operationContext)
@@ -1249,8 +1249,8 @@ interpreterModule = function(deps)
 		end if
 
 		for entity in me.stack
-			if (operationContext.debugger.getBreakPoint()) then
-				operationContext.debugger.interact(operationContext, entity.ast.line)
+			if (operationContext.dbgr.getBreakPoint()) then
+				operationContext.dbgr.interact(operationContext, entity.ast.line)
 			end if
 
 			if (me.ExpressionManager.isInstanceOf(entity)) then
@@ -1317,8 +1317,8 @@ interpreterModule = function(deps)
 
 	DebuggerOperation.run = function(operationContext)
 		me = self
-		operationContext.debugger.setBreakPoint(true)
-		operationContext.debugger.interact(operationContext, me.ast.line)
+		operationContext.dbgr.setBreakPoint(true)
+		operationContext.dbgr.interact(operationContext, me.ast.line)
 	end function
 
 	ElseIfOperation = {}
@@ -1337,7 +1337,7 @@ interpreterModule = function(deps)
 
 	ElseIfOperation.run = function(operationContext)
 		me = self
-		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
+		operationContext.dbgr.raise("Unexpected run call on " + typeof(me))
 	end function
 
 	ElseOperation = {}
@@ -1453,7 +1453,7 @@ interpreterModule = function(deps)
 			"context": me.context
 		}
 
-		opc.debugger.debug({
+		opc.dbgr.debug({
 			"type": "FunctionOperation", 
 			"description": "prepare arguments",
 			"args": args
@@ -1471,7 +1471,7 @@ interpreterModule = function(deps)
 			index = index + 1
 		end while
 
-		opc.debugger.debug({
+		opc.dbgr.debug({
 			"type": "FunctionOperation", 
 			"description": "execute body",
 			"opc": opc
@@ -1512,7 +1512,7 @@ interpreterModule = function(deps)
 				clause.body.run(operationContext)
 				return
 			else
-				operationContext.debugger.raise({
+				operationContext.dbgr.raise({
 					"type": "IfStatementOperation", 
 					"description": "Invalid operation in if statement",
 					"clause": clause
@@ -1537,7 +1537,7 @@ interpreterModule = function(deps)
 
 	IfOperation.run = function(operationContext)
 		me = self
-		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
+		operationContext.dbgr.raise("Unexpected run call on " + typeof(me))
 	end function
 
 	NewOperation = {}
@@ -1559,14 +1559,14 @@ interpreterModule = function(deps)
 
 	NewOperation.run = function(operationContext)
 		me = self
-		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
+		operationContext.dbgr.raise("Unexpected run call on " + typeof(me))
 	end function
 
 	NewOperation.get = function(operationContext)
 		me = self
 		arg = me.arg
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "NewOperation", 
 			"description": "start",
 			"arg": @arg
@@ -1579,7 +1579,7 @@ interpreterModule = function(deps)
 		argType = typeof(@arg)
 
 		if (argType == "string" or argType == "number" or argType == "boolean" or argType == "list") then
-			operationContext.debugger.raise({
+			operationContext.dbgr.raise({
 				"type": "NewOperation", 
 				"description": "Unexpected type for new operator",
 				"arg": arg
@@ -1588,7 +1588,7 @@ interpreterModule = function(deps)
 
 		newInstance = {}
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "NewOperation", 
 			"description": "start creation",
 			"arg": @arg
@@ -1624,7 +1624,7 @@ interpreterModule = function(deps)
 
 	NotOperation.run = function(operationContext)
 		me = self
-		operationContext.debugger.raise("Unexpected run call on " + typeof(me))
+		operationContext.dbgr.raise("Unexpected run call on " + typeof(me))
 	end function
 
 	NotOperation.get = function(operationContext)
@@ -1663,7 +1663,7 @@ interpreterModule = function(deps)
 		if (me.ExpressionManager.isInstanceOf(@arg)) then
 			resolvedValue = arg.get(operationContext)
 		else
-			operationContext.debugger.raise(["Unexpected reference", me.arg].join(" "))
+			operationContext.dbgr.raise(["Unexpected reference", me.arg].join(" "))
 			return null
 		end if
 
@@ -1677,16 +1677,16 @@ interpreterModule = function(deps)
 		if (me.ExpressionManager.isInstanceOf(@arg) or me.OperationManager.isInstanceOf(@arg)) then
 			arg = arg.get(operationContext, me)
 		else
-			operationContext.debugger.raise(["Unexpected reference", me.arg].join(" "))
+			operationContext.dbgr.raise(["Unexpected reference", me.arg].join(" "))
 			return null
 		end if
 
 		if (typeof(@arg) != "pathResult") then
-			operationContext.debugger.raise(["Unexpected reference result", @arg].join(" "))
+			operationContext.dbgr.raise(["Unexpected reference result", @arg].join(" "))
 			return @arg
 		end if
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "ReferenceOperation", 
 			"description": "handle",
 			"arg": @arg
@@ -1695,7 +1695,7 @@ interpreterModule = function(deps)
 		handle = arg.handle
 		handleType = typeof(@handle)
 
-		operationContext.debugger.debug({
+		operationContext.dbgr.debug({
 			"type": "ReferenceOperation", 
 			"description": "handle type after resolve",
 			"handleType": handleType
@@ -1705,7 +1705,7 @@ interpreterModule = function(deps)
 			if (handleType != "string" and handleType != "number" and handleType != "boolean") then
 				resolvedValue = me.dynResolve.get(@handle, arg.path)
 
-				operationContext.debugger.debug({
+				operationContext.dbgr.debug({
 					"type": "ReferenceOperation", 
 					"description": "returns resolved value of handle",
 					"resolvedValue": @resolvedValue
@@ -1720,7 +1720,7 @@ interpreterModule = function(deps)
 				return @resolvedValue
 			end if
 
-			operationContext.debugger.raise({
+			operationContext.dbgr.raise({
 				"type": "ReferenceOperation", 
 				"description": "Unexpected handle in reference statement",
 				"handle": handle
@@ -1731,7 +1731,7 @@ interpreterModule = function(deps)
 
 		resolvedValue = operationContext.get(arg.path)
 
-		opc.debugger.debug({
+		opc.dbgr.debug({
 			"type": "ReferenceOperation", 
 			"description": "get with opc",
 			"value": @resolvedValue,
@@ -1865,7 +1865,7 @@ interpreterModule = function(deps)
 		me = self
 
 		if (me.expr == null) then
-			operationContext.debugger.raise("Import " + me.ast.filepath.value + " is not available.")
+			operationContext.dbgr.raise("Import " + me.ast.filepath.value + " is not available.")
 			return null
 		end if
 
@@ -1977,7 +1977,7 @@ interpreterModule = function(deps)
 		ReturnOperation = cpsWalker.OperationManager.get("ReturnOperation")
 		op = (new ReturnOperation).constructor(item, cpsWalker)
 
-		op.arg = cpsWalker.visit(item.arguments[0])
+		op.arg = cpsWalker.visit(item.arguments.pull())
 
 		return op
 	end function
@@ -2491,7 +2491,7 @@ interpreterModule = function(deps)
 	
 	OperationContext.Base = OperationContext
 	OperationContext.Scope = Scope
-	OperationContext.constructor = function(debugger, isProteced = false)
+	OperationContext.constructor = function(dbgrInstance, isProteced = false)
 		me = self
 		me.classID = "operationContext"
 		me.previous = null
@@ -2499,7 +2499,7 @@ interpreterModule = function(deps)
 		me.state = me.STATE.DEFAULT
 		me.scope = (new me.Scope).constructor(me)
 		me.isProteced = isProteced
-		me.debugger = debugger
+		me.dbgr = dbgrInstance
 		me.memory = {}
 		return me
 	end function
@@ -2564,7 +2564,7 @@ interpreterModule = function(deps)
 
 	OperationContext.fork = function(type, state)
 		me = self
-		opc = (new me.Base).constructor(me.debugger)
+		opc = (new me.Base).constructor(me.dbgr)
 
 		opc.previous = me
 		opc.type = type
@@ -2706,7 +2706,7 @@ interpreterModule = function(deps)
 	end function
 
 	Debugger.showInteractOptions = function()
-		print("<b>Interactive debugger mode</b>" + char(10) + char(10) + "<b>Actions</b>:")
+		print("<b>Interactive dbgr mode</b>" + char(10) + char(10) + "<b>Actions</b>:")
 		print(char(9) + "<b>:q</b> exit")
 		print(char(9) + "<b>:i</b> show context info")
 		print(char(9) + "<b>:n</b> next line")
@@ -2738,7 +2738,7 @@ interpreterModule = function(deps)
 					cpsWalker = (new me.CPSEvaluatorWalker).constructor()
 					topOperation = (new me.TopOperation).constructor()
 					opc = operationContext.fork("CALL", "TEMPORARY")
-					opc.debugger = (new me.Base).constructor()
+					opc.dbgr = (new me.Base).constructor()
 
 					topOperation.body = cpsWalker.visit(chunk)
 					topOperation.run(opc, true)
@@ -2759,7 +2759,7 @@ interpreterModule = function(deps)
 		me.code = code
 		me.api = api
 		me.params = params
-		me.debugger = (new me.Debugger).constructor(@raise, @debug)
+		me.dbgr = (new me.Debugger).constructor(@raise, @debug)
 		me.status = {"errors":[]}
 
 		return me
@@ -2791,8 +2791,8 @@ interpreterModule = function(deps)
 			me.status.errors = me.status.errors + cpsEvaluator.getErrors()
 			return null
 		end if
-		
-		mainContext = (new me.OperationContext).constructor(me.debugger, true)
+
+		mainContext = (new me.OperationContext).constructor(me.dbgr, true)
 
 		me.api.typeof = function(v)
 			nativeType = typeof(@v)

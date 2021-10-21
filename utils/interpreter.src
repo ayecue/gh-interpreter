@@ -895,13 +895,13 @@ interpreterModule = function(deps)
 				if (indexType == "SliceExpression") then
 					expression = me.append(expression, {
 						"classID": "slice",
-						"left": me.build(node.index.left),
-						"right": me.build(node.index.right)
+						"left": me.cpsWalker.visit(node.index.left),
+						"right": me.cpsWalker.visit(node.index.right)
 					})
 				else
 					expression = me.append(expression, {
 						"classID": "index",
-						"value": me.build(node.index)
+						"value": me.cpsWalker.visit(node.index)
 					})
 				end if
 			else if (node.type == "Identifier") then
@@ -1021,13 +1021,10 @@ interpreterModule = function(deps)
 						end if
 					end if
 				else if (currentType == "index") then
-					current = current.value[0]
+					current = current.value
 
 					if (me.ExpressionManager.isInstanceOf(current)) then
 						value = current.get(opc)
-						traversedPath.push(value)
-					else if (typeof(current) == "path") then
-						value = opc.get(current.value)
 						traversedPath.push(value)
 					else
 						traversedPath.push(current)
@@ -1036,17 +1033,22 @@ interpreterModule = function(deps)
 					if (not handle) then
 						handle = opc.get(traversedPath)
 						traversedPath = []
-					else if (typeof(handle) != "list") then
-						opc.dbgr.raise("Invalid type for slice", me, handle)
+					else if (typeof(handle) != "list" and typeof(handle) != "string") then
+						opc.dbgr.raise({
+							"type": "PathExpression",
+							"description": "Invalid type for slice",
+							"instance": me,
+							"handle": handle
+						})
 					end if
 
-					left = current.left[0]
+					left = current.left
 
 					if (me.ExpressionManager.isInstanceOf(left)) then
 						left = left.get(opc)
 					end if
 
-					right = current.right[0]
+					right = current.right
 
 					if (me.ExpressionManager.isInstanceOf(right)) then
 						right = right.get(opc)
@@ -2612,7 +2614,8 @@ interpreterModule = function(deps)
 			return null
 		end if
 
-		print("[ERROR] " + errorObject)
+		print("[ERROR]:")
+		me.inspect(errorObject)
 		return null
 	end function
 
@@ -2624,7 +2627,10 @@ interpreterModule = function(deps)
 			return null
 		end if
 
-		debug("[DEBUG] " + errorObject)
+		if (debug("[DEBUG]")) then
+			me.inspect(errorObject)
+		end if
+
 		return null
 	end function
 

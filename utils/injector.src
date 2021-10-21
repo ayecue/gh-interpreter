@@ -1,6 +1,9 @@
 globals.debug = function(str)
-	if (false) then print(str)
-	return null
+	if (false) then
+		print(str)
+		return true
+	end if
+	return false
 end function
 
 injectorModule = function()

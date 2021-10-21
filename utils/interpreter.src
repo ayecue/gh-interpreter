@@ -1899,13 +1899,14 @@ interpreterModule = function(deps)
 			"isContinue": false
 		}
 		condition = {
-			"instance": me
+			"instance": me,
+			"opc": opc
 		}
 		condition.is = function()
 			me = self.instance
 
 			if (me.ExpressionManager.isInstanceOf(me.condition)) then
-				return me.condition.get(opc)
+				return me.condition.get(self.opc)
 			end if
 
 			return me.condition

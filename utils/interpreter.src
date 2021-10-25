@@ -559,9 +559,7 @@ interpreterModule = function(deps)
 			current = traverselPath.pull()
 
 			while (typeof(current) != "null")
-				if (typeof(current) == "listexpr") then
-					list.push(me.eval(current.values))
-				else if (me.ExpressionManager.isInstanceOf(current) or me.OperationManager.isInstanceOf(current)) then
+				if (me.ExpressionManager.isInstanceOf(current) or me.OperationManager.isInstanceOf(current)) then
 					list.push(current.get(operationContext))
 				else
 					list.push(current)
@@ -780,7 +778,7 @@ interpreterModule = function(deps)
 				for item in node.fields
 					fields.push({
 						"key": me.cpsWalker.visit(item.key),
-						"value": me.build(item.value)
+						"value": me.cpsWalker.visit(item.value)
 					})
 				end for
 
@@ -829,9 +827,7 @@ interpreterModule = function(deps)
 					operationContext.dbgr.raise(["Unexpected key", me, current.key].join(" "))
 				end if
 
-				if (typeof(current.value) == "mapexpr") then
-					value = self.eval(current.value.values)
-				else if (me.ExpressionManager.isInstanceOf(current.value) or me.OperationManager.isInstanceOf(current.value)) then
+				if (me.ExpressionManager.isInstanceOf(current.value) or me.OperationManager.isInstanceOf(current.value)) then
 					value = current.value.get(operationContext)
 				else
 					value = current.value

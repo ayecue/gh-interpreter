@@ -1,7 +1,7 @@
 interpreterModule = function(deps)
-	dynResolve = deps[0]
-	CodeParser = deps[1]
-	dynApply = deps[2]
+	dynResolve = deps.dynResolve
+	CodeParser = deps.parser
+	dynApply = deps.dynApply
 
 	ExpressionManager = {"members":{}}
 

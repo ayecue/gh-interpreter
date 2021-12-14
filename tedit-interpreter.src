@@ -3,7 +3,7 @@
 #include ./utils/dynResolve;
 
 teditInterpreterModule = function(deps)
-	Interpreter = deps[0]
+	Interpreter = deps.interpreter
 
 	TEditInterpreter = {}
 

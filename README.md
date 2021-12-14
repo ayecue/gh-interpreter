@@ -14,3 +14,9 @@ Uses [greybel-js](https://github.com/ayecue/greybel-js) for transpiling.
 2. Copy installer files into GreyHack
 3. Compile installer files to ingame binary (this will automatically create all the files)
 4. Compile test-interpreter.src to ingame binary
+
+# Export for tedit
+
+```
+greybel tedit-interpreter.src build -u -dlo -en injector -en debug -en globals
+```
